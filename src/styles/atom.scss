@@ -1,0 +1,76 @@
+$half_font : 0.5rem;
+
+:root {
+  --layer_color : rgba(0,0,0,0.1);
+  --base_color  : #fff;
+  --assort_color: #222;
+  --accent_color: #d04;
+  }
+@media (prefers-color-scheme: dark) {
+  :root {
+    --layer_color : rgba(255,255,255,0.1);
+    --base_color  : #222;
+    --assort_color: #fff;
+  }
+}
+
+:root {
+  font-size: calc(75% + 0.3vw);
+  background-color: var(--base_color);
+  color: var(--assort_color);
+}
+
+%wrapper {
+  border-radius: $half_font;
+  padding: $half_font;
+}
+
+%tin {
+  opacity: 0.8;
+}
+
+%bold {
+  font-weight: 900;
+}
+
+.area {
+  @extend %wrapper;
+  margin: $half_font;
+  background-color: var(--layer_color);
+}
+
+.button {
+  @extend %wrapper;
+  padding-right: 1rem;
+  padding-left : 1rem;
+  margin: $half_font;
+  display: inline-block;
+  background-color: var(--accent_color);
+  color: white;
+}
+
+.inputFile {
+  label {
+    @extend .button;
+    &::after{
+      @extend %bold;
+      content: "ファイルを選択";
+    }
+    input {
+      display: none;
+    }
+  }
+}
+
+.dropArea {
+  text-align: center;
+  &.active {
+    background-color: var(--accent_color);
+  }
+  &::before {
+    @extend %tin;
+    display: inline-block;
+    margin: 10px;
+    content: "ここに .bbmodel ファイルをドロップしてください";
+  }
+}

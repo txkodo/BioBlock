@@ -26,14 +26,24 @@ module.exports = {
             use: 'ts-loader'    
         },
         {
-          test: /(\.s[ac]ss)$/,
+          test: /\.(scss|sass|less|css)$/i,
           use: [
-            "style-loader", // creates style nodes from JS strings
-            "css-loader", // translates CSS into CommonJS
-            "postcss-loader", // 追記
-            "sass-loader" // compiles Sass to CSS, using Node Sass by default
+            {
+              loader: 'style-loader'
+            },
+            {
+              loader: 'css-loader',
+            },
+            {
+              loader: 'sass-loader',
+              options: {
+                sassOptions: {
+                  outputStyle: 'expanded',
+                },
+              },
+            },
           ]
-        }
+        },
       ]
     },
 

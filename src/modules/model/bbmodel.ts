@@ -1,8 +1,8 @@
-import { Animation, animation_json, jsonToAnimation } from "./animation"
-import { Element, element_json, jsonToElement } from "./element"
-import { jsonToOutliner, Outliner, outliner_json } from "./outliner"
-import { resolution } from "./resolution"
-import { Texture } from "./texture"
+import { ModelAnimation, animation_json, jsonToAnimation } from "./animation"
+import { ModelElement as ModelElement, element_json, jsonToElement } from "./element"
+import { jsonToOutliner, ModelOutliner as ModelOutliner, outliner_json } from "./outliner"
+import { resolution as Modelresolution } from "./resolution"
+import { Texture as ModelTexture } from "./texture"
 
 
 
@@ -27,17 +27,17 @@ interface meta{
 // })
 
 
-interface bbmodel_json{
+export interface bbmodel_json{
   meta:meta
   name:string
-  resolution: resolution
+  resolution: Modelresolution
   elements: element_json[]
   outliner: outliner_json[]
-  textures: Texture[]
+  textures: ModelTexture[]
   animations:animation_json[]
 }
 
-const jsonToBBmodel = (json:bbmodel_json) => {
+export const jsonToBBmodel = (json:bbmodel_json) => {
   const resolution = json.resolution
   const textures   = json.textures
   const elements   = json.elements.map(element_json=>jsonToElement(textures,resolution,element_json))
@@ -58,21 +58,21 @@ const jsonToBBmodel = (json:bbmodel_json) => {
 interface bbmodel{
   meta:meta
   name:string
-  resolution: resolution
-  elements: Element[]
-  outliner: Outliner[]
-  textures: Texture[]
-  animations: Animation[]
+  resolution: Modelresolution
+  elements: ModelElement[]
+  outliner: ModelOutliner[]
+  textures: ModelTexture[]
+  animations: ModelAnimation[]
 }
 
-class BBmodel implements bbmodel{
+export class BBmodel implements bbmodel{
   meta:meta
   name:string
-  resolution: resolution
-  elements: Element[]
-  outliner: Outliner[]
-  textures: Texture[]
-  animations: Animation[]
+  resolution: Modelresolution
+  elements: ModelElement[]
+  outliner: ModelOutliner[]
+  textures: ModelTexture[]
+  animations: ModelAnimation[]
   
   constructor(bbmodel:bbmodel){
     this.meta = bbmodel.meta

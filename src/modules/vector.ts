@@ -47,6 +47,8 @@ export const matrix_vec3_mul = (m: matrix, v: vec3) => {
 }
 
 
+export const UNIT_MATRIX:matrix = [1,0,0,0,0,1,0,0,0,0,1,0]
+
 const radians = (x:number) => x * Math.PI / 180
 
 export const rotation_matrix = (rotation:vec3) => {
@@ -74,4 +76,14 @@ export const relativeOrigin = (transpose:vec3, rotation:vec3) => {
 
 export const constructMatrix = (transpose:vec3, rotation:vec3) => {
   return matrix_mul(transpose_matrix(transpose),rotation_matrix(rotation))
+}
+
+export const deconstructMatrix = (matrix:matrix):[vec3,vec3] => {
+  // rz: -180 ~ 180
+  const rz = Math.atan2(matrix[4],matrix[0])
+  // rx: -180 ~ 180
+  const rx = Math.atan2(matrix[9],matrix[10])
+  // ry: -90 ~ 90
+  const ry = Math.atan(-matrix[8]/Math.sqrt(matrix[9]**2 + matrix[10]**2))
+  return [[matrix[3],matrix[7],matrix[11]],[rx,ry,rz]]
 }

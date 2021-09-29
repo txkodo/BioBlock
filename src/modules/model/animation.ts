@@ -1,6 +1,6 @@
 import { vec3 } from "../vector";
-import { Element } from "./element";
-import { Outliner } from "./outliner";
+import { ModelElement } from "./element";
+import { ModelOutliner } from "./outliner";
 
 interface keyframe_json {
   channel: 'rotation' | 'position' | 'scale',
@@ -30,18 +30,21 @@ const jsonToKeyframe = (keyframe_json: keyframe_json): keyframe => {
 }
 
 interface animator_json {
+  uuid: string
   name: string
   keyframes: keyframe_json[]
 }
 
-interface animator {
+export interface Modelanimator {
+  uuid: string
   name: string
-  target: Outliner
+  target: ModelOutliner
   keyframes: keyframe[]
 }
 
-const jsonToAnimator = (animator_json: animator_json, outliner: Outliner): animator => {
+const jsonToAnimator = (animator_json: animator_json, outliner: ModelOutliner): Modelanimator => {
   return {
+    uuid: animator_json.uuid,
     name: animator_json.name,
     target: outliner,
     keyframes: animator_json.keyframes.map(jsonToKeyframe)
@@ -61,14 +64,14 @@ interface animation {
   name: string
   loop: 'once'
   length: number
-  animators: animator[]
+  animators: Modelanimator[]
 }
 
-export const jsonToAnimation = (outliners: Outliner[], animation_json: animation_json): Animation => {
-  const outliner_find = (outliners: (Outliner | Element)[], func: (outliner: Outliner) => boolean): Outliner | undefined => {
-    let result: Outliner | undefined = undefined
+export const jsonToAnimation = (outliners: ModelOutliner[], animation_json: animation_json): ModelAnimation => {
+  const outliner_find = (outliners: (ModelOutliner | ModelElement)[], func: (outliner: ModelOutliner) => boolean): ModelOutliner | undefined => {
+    let result: ModelOutliner | undefined = undefined
     for (let outliner of outliners){
-      if (outliner instanceof Outliner) {
+      if (outliner instanceof ModelOutliner) {
         if (func(outliner)) {
           result = outliner
           break
@@ -80,7 +83,7 @@ export const jsonToAnimation = (outliners: Outliner[], animation_json: animation
     return result
   }
 
-  let animators: animator[] = []
+  let animators: Modelanimator[] = []
 
   Object.keys(animation_json.animators).forEach(key => {
     const animator_json = animation_json.animators[key]
@@ -90,7 +93,7 @@ export const jsonToAnimation = (outliners: Outliner[], animation_json: animation
     }
   })
 
-  return new Animation({
+  return new ModelAnimation({
     name: animation_json.name,
     loop: animation_json.loop,
     length: animation_json.length,
@@ -98,11 +101,11 @@ export const jsonToAnimation = (outliners: Outliner[], animation_json: animation
   })
 }
 
-export class Animation implements animation {
+export class ModelAnimation implements animation {
   name: string
   loop: 'once'
   length: number
-  animators: animator[]
+  animators: Modelanimator[]
   constructor(animation:animation){
     this.name = animation.name 
     this.loop = animation.loop 

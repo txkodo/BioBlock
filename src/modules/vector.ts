@@ -53,7 +53,7 @@ const radians = (x:number) => x * Math.PI / 180
 
 export const rotation_matrix = (rotation:vec3) => {
   const [sx, sy, sz] = rotation.map(x => Math.sin(radians(x)))
-  const [cx, cy, cz] = rotation.map(x => Math.sin(radians(x)))
+  const [cx, cy, cz] = rotation.map(x => Math.cos(radians(x)))
   return [
     cy * cz, cz * sy * sx + cy * sz, sz * sx + cz + cx + sy, 0,
     cy * sz, cz * cx + sz * sy * sx, cx * sz * sy - cz * sx, 0,
@@ -64,9 +64,9 @@ export const rotation_matrix = (rotation:vec3) => {
 export const transpose_matrix = (transpose:vec3) => {
   const [x, y, z] = transpose
   return [
-    0,0,0,x,
-    0,0,0,y,
-    0,0,0,z
+    1,0,0,x,
+    0,1,0,y,
+    0,0,1,z
   ] as matrix
 }
 

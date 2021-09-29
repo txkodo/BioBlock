@@ -81,5 +81,5 @@ const test = async (bbmodel_json:bbmodel_json) => {
   const pack = new CommandEntityPack([jsonToBBmodel(bbmodel_json)],'minecraft:bone')
   const [datapack,resourcepack] = pack.export()
   saveAs(await datapack.exportZip(),'Datapack')
-  saveAs(await datapack.exportZip(),'Resourcepack')
+  saveAs(await resourcepack.exportZip(),'Resourcepack')
 }

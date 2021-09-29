@@ -8,7 +8,11 @@ export class DirectoryError extends Error {
 
 export class Directory {
   obj: { [index: string]: string | Blob | Directory }
-  constructor() {
+  parent: Directory | null
+  name: string | null
+  constructor([parent, name]: [Directory, string] | [null, null] = [null, null]) {
+    this.parent = parent
+    this.name = name
     this.obj = {}
   }
 
@@ -31,9 +35,39 @@ export class Directory {
     }
   }
 
+  makedir(keys: string[], { parent, exist_ok }: { parent?: boolean, exist_ok?: boolean } = { parent: false, exist_ok: false }) {
+    const o = this.obj[keys[0]]
+    if (keys.length == 0) {
+      this.parent?.makedir([this.name as string], {parent})
+    } else {
+      if (o === undefined) {
+        // 存在しない場合
+        if (keys.length = 1 || parent) {
+          this.obj[keys[0]] = new Directory([this, keys[0]]);
+        } else {
+          throw new DirectoryError('parent directry not exists.')
+        }
+      } else if (o instanceof Directory) {
+        // 存在した場合
+        if (keys.length = 1 || exist_ok) {
+          if (keys.length > 1) {
+            (this.obj[keys[0]] as Directory).makedir(keys.slice(1), {parent, exist_ok})
+          }
+        } else {
+          throw new DirectoryError('directry already exists.')
+        }
+      } else {
+        throw new DirectoryError('cannnot overwrite non-directory with directory.')
+      }
+    }
+  }
+
+
   setValue(keys: string[], value: string | Blob | Directory, parent: boolean = false) {
     const o = this.obj[keys[0]]
-    if (keys.length == 1) {
+    if (keys.length == 0) {
+      this.parent?.setValue([this.name as string], value)
+    } else if (keys.length == 1) {
       if (o instanceof Directory) {
         if (!(value instanceof Directory)) {
           throw new DirectoryError('you cannnot overwrite directory with file.')
@@ -46,7 +80,7 @@ export class Directory {
       if (o === undefined) {
         if (parent) {
           // 親フォルダを作成
-          this.obj[keys[0]] = new Directory();
+          this.obj[keys[0]] = new Directory([this, keys[0]]);
           (this.obj[keys[0]] as Directory).setValue(keys.slice(1), value, parent)
         } else {
           // エラー
@@ -92,17 +126,17 @@ export class Path {
     this.segments = segments
   }
 
-  child(...segments: string[]){
-    return new Path(this.root,...this.segments.concat(segments))
+  child(...segments: string[]) {
+    return new Path(this.root, ...this.segments.concat(segments))
   }
 
-  get parent(){
+  get parent() {
     return this.parents(1)
   }
 
-  parents(rank: number){
+  parents(rank: number) {
     if (this.segments.length >= rank) {
-      return new Path(this.root,...this.segments.slice(0, -rank))
+      return new Path(this.root, ...this.segments.slice(0, -rank))
     } else {
       throw new DirectoryError('root directory has no parent.')
     }
@@ -116,6 +150,10 @@ export class Path {
     this.root.setValue(this.segments.concat([name]), new Directory(), parent)
   }
 
+  write_json(json: object, parent: boolean = false) {
+    this.root.setValue(this.segments, JSON.stringify(json), parent)
+  }
+
   write_text(text: string, parent: boolean = false) {
     this.root.setValue(this.segments, text, parent)
   }
@@ -124,10 +162,10 @@ export class Path {
     this.root.setValue(this.segments, blob, parent)
   }
 
-  async exportZip():Promise<Blob> {
+  async exportZip(): Promise<Blob> {
     const folder = this.root.getValue(this.segments)
     if (folder instanceof Directory) {
-      return await folder.exportZip().generateAsync({type:"blob"})
+      return await folder.exportZip().generateAsync({ type: "blob" })
     }
     throw new DirectoryError('cannot create zip from non-directory object.')
   }

@@ -6,9 +6,11 @@ import { ModelOutliner } from "../model/outliner";
 import { Counter } from "../util/counter";
 import { mcPath } from "../util/datapack";
 import { Path } from "../util/folder";
-import { constructMatrix, deconstructMatrix, matrix, matrix_mul, relativeOrigin, UNIT_MATRIX, vec3 } from "../vector";
+import { float_round } from "../util/number";
+import { deconstructMatrix, matrix, matrix_mul, relativeOrigin, UNIT_MATRIX, vec3 } from "../vector";
 import { CommandEntity } from "./command_entity";
-import { ARMORSTAND_SELECTOR, SCORE_FRAME, SCORE_ID, TAG_ACTIVE, TAG_ALL, TAG_ENTITY, TAG_ENTITYPART, TAG_GC, TAG_TEMP } from "./consts";
+import { ARMORSTAND_SELECTOR, SCORE_FRAME, SCORE_ID, TAG_ACTIVE, TAG_ALL, TAG_ENTITYPART, TAG_GC, TAG_TEMP } from "./consts";
+import { model_override } from "./resourcepack";
 
 export class CommandEntityOutliner {
   outliner: ModelOutliner
@@ -44,13 +46,13 @@ export class CommandEntityOutliner {
   }
 
   exportAllTpCommand(tick: number, parent_matrix: matrix): string[] {
-    const origin_matrix = matrix_mul(parent_matrix, this.getRalativeOrigin(tick))
+    let origin_matrix = matrix_mul(parent_matrix, this.getRalativeOrigin(tick))
     let result: string[] = []
     this.elements.forEach(element => {
-      result.concat(element.exportTpCommand(origin_matrix))
+      result.push(...element.exportTpCommand(origin_matrix))
     })
     this.outliners.forEach(outline => {
-      result.concat(outline.exportAllTpCommand(tick, origin_matrix))
+      result.push(...outline.exportAllTpCommand(tick, origin_matrix))
     })
     return result
   }
@@ -83,7 +85,7 @@ export class CommandEntityAnimation {
 
   writePreFrameFunction(frames_folder:Path,tick: number):void {
     frames_folder.child(tick.toString()+'_.mcfunction').write_text(
-      `execute as ${ARMORSTAND_SELECTOR([this.entity.tag,TAG_GC],{SCORE_FRAME:"0"})} at @s run function ${mcPath(frames_folder.child(tick.toString()+'.mcfunction'))}`,
+      `execute as ${ARMORSTAND_SELECTOR([this.entity.tag,TAG_GC],{[SCORE_FRAME]:tick.toString()})} at @s run function ${mcPath(frames_folder.child(tick.toString()+'.mcfunction'))}`,
     true)
   }
 
@@ -99,7 +101,7 @@ export class CommandEntityAnimation {
       `tag ${ARMORSTAND_SELECTOR([TAG_ACTIVE])} remove ${TAG_ACTIVE}`,
       `scoreboard players operation ${ARMORSTAND_SELECTOR([TAG_ALL])} ${SCORE_ID} += _ ${SCORE_ID}`,
       `scoreboard players set @s ${SCORE_FRAME} ${total_tick + 1}`,
-      isLast?'# LSAT FRAME':`schedule function ${mcPath(frames_folder.child((tick+1).toString()+'.mcfunction'))} 1t`
+      isLast?'# LSAT FRAME':`schedule function ${mcPath(frames_folder.child((tick+1).toString()+'_.mcfunction'))} 2t`
     ]
     frames_folder.child(tick.toString()+'.mcfunction').write_text(commands.join('\n'),true)
   }
@@ -130,19 +132,20 @@ export class CommandEntityItemModel {
   exportTpCommand(origin_matrix: matrix): string[] {
     const matrix = matrix_mul(origin_matrix, this.element.matrix())
     const [position, rotation] = deconstructMatrix(matrix)
-    return [
-      `tp ${ARMORSTAND_SELECTOR([TAG_ACTIVE, this.tag], {}, true)} ~${position[0]} ~${position[1]} ~${-position[2]} ~ ~`,
-      `data modify entity ${ARMORSTAND_SELECTOR([TAG_ACTIVE, this.tag], {}, true)} Pose.Head set value [-${rotation[0]}f,${rotation[1]}f,-${rotation[2]}f]`
+    const result = [
+      `tp ${ARMORSTAND_SELECTOR([TAG_ACTIVE, this.tag], {}, true)} ~${float_round(position[0]/16,5)} ~${float_round(position[1]/16,5)} ~${float_round(-position[2]/16,5)} ~ ~`,
+      `data modify entity ${ARMORSTAND_SELECTOR([TAG_ACTIVE, this.tag], {}, true)} Pose.Head set value [${float_round(-rotation[0],5)}f,${float_round(rotation[1],5)}f,${float_round(-rotation[2],5)}f]`
     ]
+    return result
   }
 
-  exportModel(): itemModel {
+  writeModel(entitymodel_folder:Path): model_override {
     let faces: { [kay in itemModelFaceKey]?: itemModelFace } = {};
     (Object.keys(this.element.faces) as itemModelFaceKey[]).forEach((facename: itemModelFaceKey): void => {
       const face = this.element.faces[facename] as face
       faces[facename] = { texture: face.texture.id, uv: face.uv.map(x => 16 * x) as [number, number, number, number] }
     })
-    return {
+    const model_json = JSON.stringify({
       elements: [{
         from: this.element.from,
         to: this.element.to,
@@ -150,7 +153,11 @@ export class CommandEntityItemModel {
       }],
       textures: {},
       display: {}
-    }
+    })
+    const exportpath = entitymodel_folder.child(this.part_id+'.json')
+    exportpath.write_text(model_json,true)
+
+    return {predicate:{custom_model_data:this.custom_model_data},model:mcPath(exportpath)}
   }
 }
 

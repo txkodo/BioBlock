@@ -19,7 +19,7 @@ interface keyframe {
 }
 
 const jsonToKeyframe = (keyframe_json: keyframe_json): keyframe => {
-  const datapoints: vec3[] = keyframe_json.data_points.map(({ x, y, z }) => [parseFloat(x), parseFloat(y), parseFloat(x)])
+  const datapoints: vec3[] = keyframe_json.data_points.map(({ x, y, z }) => [parseFloat(x), parseFloat(y), parseFloat(z)])
   return {
     channel: keyframe_json.channel,
     data_points: datapoints,

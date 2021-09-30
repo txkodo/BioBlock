@@ -39,7 +39,8 @@ export class CommandEntityPack {
     const resourcepack = new Path()
     const model_overrides = this.commandEntities.flatMap(entity => entity.export(
       datapack.child('data', NAMESPACE, 'functions'),
-      resourcepack.child('assets',NAMESPACE,'models', NAMESPACE)
+      resourcepack.child('assets',NAMESPACE,'models', NAMESPACE),
+      resourcepack.child('assets',NAMESPACE,'textures', NAMESPACE),
       ))
 
     this.write_itemmodel(model_overrides,resourcepack.child('assets',this.model_item_namespace,'models','item',this.model_item_name + '.json'))
@@ -115,7 +116,7 @@ export class CommandEntity {
     core_folder.child('summon.mcfunction').write_text(summon_commands.join('\n'), true)
   }
 
-  export(fucntions_folder: Path, model_folder: Path): model_override[] {
+  export(fucntions_folder: Path, model_folder: Path, texture_folder: Path): model_override[] {
     //// Datapack
     const core_folder = fucntions_folder.child(this.bbmodel.name, 'core')
     // summon
@@ -125,7 +126,7 @@ export class CommandEntity {
     this.commandEntityAnimations.map(animation => animation.writeAllFrameFunctions(tickCounter, core_folder.child('animations')))
 
     //// Resourcepack
-    const model_overrides: model_override[] = this.itemModels.map(itemmodel => itemmodel.writeModel(model_folder.child(this.bbmodel.name)))
+    const model_overrides: model_override[] = this.itemModels.map(itemmodel => itemmodel.writeModel(model_folder.child(this.bbmodel.name),texture_folder.child(this.bbmodel.name)))
 
     return model_overrides
   }

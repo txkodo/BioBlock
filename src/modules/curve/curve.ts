@@ -109,9 +109,11 @@ export class Curve implements curve {
   last_isLine: boolean
   last_isDouble: boolean
   segments: segment[]
-  constructor() {
+  normal: number
+  constructor(start:number) {
+    this.normal = start
     this.segments = []
-    this.last_point = {t:0,y:0}
+    this.last_point = {t:0,y:this.normal}
     this.last_isLine = true
     this.last_isDouble = false
     this.first_point = undefined
@@ -153,7 +155,7 @@ export class Curve implements curve {
   }
 
   eval(t: number): number {
-    const outRange = this.first_point?(t < this.first_point.t? this.first_point.y:this.last_point.y):this.last_point.y
+    const outRange = this.first_point?(t <= this.first_point.t? this.first_point.y:this.last_point.y):this.last_point.y
     return this.segments.find(crv => crv.eval(t))?.eval(t) ?? outRange
   }
 }

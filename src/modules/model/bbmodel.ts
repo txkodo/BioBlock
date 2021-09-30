@@ -2,7 +2,7 @@ import { ModelAnimation, animation_json, jsonToAnimation } from "./animation"
 import { ModelElement as ModelElement, element_json, jsonToElement } from "./element"
 import { jsonToOutliner, ModelOutliner as ModelOutliner, outliner_json } from "./outliner"
 import { resolution as Modelresolution } from "./resolution"
-import { Texture as ModelTexture } from "./texture"
+import { Texture as ModelTexture, Texture } from "./texture"
 
 
 
@@ -39,7 +39,7 @@ export interface bbmodel_json{
 
 export const jsonToBBmodel = (json:bbmodel_json) => {
   const resolution = json.resolution
-  const textures   = json.textures
+  const textures   = json.textures.map(texture_json=>new Texture(texture_json))
   const elements   = json.elements.map(element_json=>jsonToElement(textures,resolution,element_json))
   const outliner   = json.outliner.map(outline_json=>jsonToOutliner(elements,outline_json))
   const animations = json.animations.map(animation_json=>jsonToAnimation(outliner,animation_json))

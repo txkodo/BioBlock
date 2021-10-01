@@ -9,7 +9,7 @@ import { Path } from "../util/folder";
 import { float_round } from "../util/number";
 import { constructMatrix, deconstructMatrix, matrix, matrix_mul, relativeOrigin, UNIT_MATRIX, vec3, vec3_add, vec3_neg, vec3_sub } from "../vector";
 import { CommandEntity } from "./command_entity";
-import { ARMORSTAND_SELECTOR, SCORE_FRAME, SCORE_ID, TAG_ACTIVE, TAG_ALL, TAG_ENTITYPART, TAG_GC, TAG_TEMP } from "./consts";
+import { ARMORSTAND_SELECTOR, SCORE_FRAME, SCORE_ID, SCORE_NEXT, TAG_ACTIVE, TAG_ALL, TAG_ENTITYPART, TAG_GC, TAG_TEMP } from "./consts";
 import { model_override } from "./resourcepack";
 
 export class CommandEntityOutliner {
@@ -20,12 +20,11 @@ export class CommandEntityOutliner {
   outliners: CommandEntityOutliner[]
   constructor(outliner: ModelOutliner, animators: Modelanimator[], itemModels: CommandEntityItemModel[]) {
     this.outliner = outliner
-    // TODO: 参照元がなかった場合の処理
-    const animator: Modelanimator = animators.find(animator => animator.target.uuid == outliner.uuid) as Modelanimator
     this.rotation = new Curve3D(this.outliner.rotation ?? [0, 0, 0])
     this.position = new Curve3D(this.outliner.origin)
 
-    animator.keyframes.forEach((keyframe) => {
+    const animator: Modelanimator | undefined = animators.find(animator => animator.target.uuid == outliner.uuid)
+    animator?.keyframes.forEach((keyframe) => {
       if (keyframe.channel == 'position') {
         this.position.addVector(keyframe.time, vec3_add(outliner.origin, keyframe.data_points[0]), keyframe.interpolation == 'linear', keyframe.data_points[1] ? vec3_add(outliner.origin, keyframe.data_points[1]) : undefined)
       } else if (keyframe.channel == 'rotation') {
@@ -67,33 +66,47 @@ export class CommandEntityAnimation {
   animation: ModelAnimation
   commandEntityOutliners: CommandEntityOutliner[];
   entity: CommandEntity;
+  animation_folder: Path;
+  frames_folder: Path;
 
-  constructor(entity: CommandEntity, animation: ModelAnimation, outliner: ModelOutliner[], itemModels: CommandEntityItemModel[]) {
+  constructor(entity: CommandEntity, animation: ModelAnimation, outliner: ModelOutliner[],animations_folder:Path,itemModels: CommandEntityItemModel[]) {
     this.entity = entity
     this.animation = animation
+
+    this.animation_folder = animations_folder.child(this.animation.name)
+    this.frames_folder    = this.animation_folder.child('frames')
+
     this.commandEntityOutliners = outliner.map(outline => new CommandEntityOutliner(outline, animation.animators, itemModels))
     this.start_frame = undefined
   }
 
-  writeAllFrameFunctions(tickCounter: Counter, animations_folder: Path): void {
+  writeAllFrameFunctions(tickCounter: Counter): void {
     const last_tick = this.animation.length * 20
+    let first_tick: undefined | number = undefined
     for (let i = 0; i <= last_tick; i++) {
       const tick = tickCounter.next()
+      first_tick = first_tick ?? tick
       this.start_frame = this.start_frame ?? tick
-      const frames_folder = animations_folder.child(this.animation.name, 'frames')
-      this.writePreFrameFunction(frames_folder, i)
-      this.writeFrameFunction(frames_folder, i, tick)
+      this.writePreFrameFunction(i)
+      this.writeFrameFunction(i, tick, i === last_tick,first_tick)
     }
+
+    const main_function: string[] = [
+      `scoreboard players set @s ${SCORE_FRAME} ${first_tick}`,
+      `schedule function ${mcPath(this.frames_folder.child(`${first_tick}_.mcfunction`))} 1 replace`,
+      `schedule function cmdent:single/core/animations/test/frames/0_ 1 replace`,
+    ]
+    this.animation_folder.child('.mcfunction').write_text(main_function.join('\n'))
   }
 
-  writePreFrameFunction(frames_folder: Path, tick: number): void {
-    frames_folder.child(tick.toString() + '_.mcfunction').write_text(
-      `execute as ${ARMORSTAND_SELECTOR([this.entity.tag, TAG_GC], { [SCORE_FRAME]: tick.toString() })} at @s run function ${mcPath(frames_folder.child(tick.toString() + '.mcfunction'))}`,
+  writePreFrameFunction(tick: number): void {
+    this.frames_folder.child(tick.toString() + '_.mcfunction').write_text(
+      `execute as ${ARMORSTAND_SELECTOR([this.entity.tag, TAG_GC], { [SCORE_FRAME]: tick.toString() })} at @s run function ${mcPath(this.frames_folder.child(tick.toString() + '.mcfunction'))}`,
       true)
   }
 
 
-  writeFrameFunction(frames_folder: Path, tick: number, total_tick: number, isLast: boolean = false): void {
+  writeFrameFunction(tick: number, total_tick: number, isLast: boolean,first_frame:number): void {
     const commands: string[] = [
       `scoreboard players operation _ ${SCORE_ID} = @s ${SCORE_ID}`,
       `scoreboard players operation ${ARMORSTAND_SELECTOR([TAG_ALL])} ${SCORE_ID} -= _ ${SCORE_ID}`,
@@ -104,10 +117,27 @@ export class CommandEntityAnimation {
       '',
       `tag ${ARMORSTAND_SELECTOR([TAG_ACTIVE])} remove ${TAG_ACTIVE}`,
       `scoreboard players operation ${ARMORSTAND_SELECTOR([TAG_ALL])} ${SCORE_ID} += _ ${SCORE_ID}`,
-      `scoreboard players set @s ${SCORE_FRAME} ${total_tick + 1}`,
-      isLast ? '# LSAT FRAME' : `schedule function ${mcPath(frames_folder.child((tick + 1).toString() + '_.mcfunction'))} 2t`
+      ...(isLast
+        ? [
+          `function ${mcPath(this.entity.select_function)}`,
+          ...{
+            // 1tick後に__snooze__状態になる
+            once:[`execute unless score @s ${SCORE_NEXT} matches 1..${this.entity.commandEntityAnimations.length} run schedule function SNOOOOOOOOZE 1`],
+            // 1tick後にこのファンクションを呼び出す
+            hold:[`execute unless score @s ${SCORE_NEXT} matches 1..${this.entity.commandEntityAnimations.length} run schedule function ${mcPath(this.frames_folder.child(tick.toString() + '_.mcfunction'))} 1`],
+            // 1tick後にこのアニメーションの最初に戻る
+            loop:[
+              `execute unless score @s ${SCORE_NEXT} matches 1..${this.entity.commandEntityAnimations.length} run scoreboard players set @s ${SCORE_FRAME} ${first_frame}`,
+              `execute unless score @s ${SCORE_NEXT} matches 1..${this.entity.commandEntityAnimations.length} run schedule function ${mcPath(this.frames_folder.child('0_.mcfunction'))}`
+            ],
+          }[this.animation.loop]
+        ]
+        : [
+          `scoreboard players set @s ${SCORE_FRAME} ${total_tick + 1}`,
+          `schedule function ${mcPath(this.frames_folder.child((tick + 1).toString() + '_.mcfunction'))} 2t`
+        ])
     ]
-    frames_folder.child(tick.toString() + '.mcfunction').write_text(commands.join('\n'), true)
+    this.frames_folder.child(tick.toString() + '.mcfunction').write_text(commands.join('\n'), true)
   }
 }
 
@@ -119,10 +149,16 @@ export class CommandEntityItemModel {
   custom_model_data: number;
   tag: string;
   entity: CommandEntity;
+  textures_folder: Path;
+  entitymodel_folder: Path;
 
-  constructor(entity: CommandEntity, element: ModelElement, entity_name: string, part_id: string, custom_model_data: number) {
+  constructor(entity: CommandEntity, element: ModelElement, entitymodel_folder:Path, textures_folder:Path, entity_name: string, part_id: string, custom_model_data: number) {
     this.entity = entity
     this.element = element
+
+    this.entitymodel_folder = entitymodel_folder
+    this.textures_folder    = textures_folder
+
     this.entity_name = entity_name
     this.part_id = part_id
     this.custom_model_data = custom_model_data
@@ -144,13 +180,13 @@ export class CommandEntityItemModel {
     return result
   }
 
-  writeModel(entitymodel_folder: Path,textures_folder: Path): model_override {
+  writeModel(): model_override {
     // 使用されたテクスチャの集合
-    let texture_set:Set<Texture> = new Set()
+    let texture_set: Set<Texture> = new Set()
     // テクスチャの{id:mcPath}
-    let textures:{[index:string]:string} = {}
+    let textures: { [index: string]: string } = {}
 
-    const texturepath = (texture:Texture) => textures_folder.child(texture.id+'.png')
+    const texturepath = (texture: Texture) => this.textures_folder.child(texture.id + '.png')
 
     let faces: { [kay in itemModelFaceKey]?: itemModelFace } = {};
     (Object.keys(this.element.faces) as itemModelFaceKey[]).forEach((facename: itemModelFaceKey): void => {
@@ -160,11 +196,11 @@ export class CommandEntityItemModel {
       faces[facename] = { texture: face.texture.id, uv: face.uv.map(x => 16 * x) as [number, number, number, number] }
     })
     // テクスチャの生成
-    texture_set.forEach(texture=> {
+    texture_set.forEach(texture => {
       console.log(texture);
-      texturepath(texture).write_bytes(texture.getFile(),true)
+      texturepath(texture).write_bytes(texture.getFile(), true)
     });
-    
+
     // モデルの生成
     const model_json = JSON.stringify({
       elements: [{
@@ -181,7 +217,7 @@ export class CommandEntityItemModel {
         }
       }
     })
-    const exportpath = entitymodel_folder.child(this.part_id + '.json')
+    const exportpath = this.entitymodel_folder.child(this.part_id + '.json')
     exportpath.write_text(model_json, true)
 
     return { predicate: { custom_model_data: this.custom_model_data }, model: mcPath(exportpath) }

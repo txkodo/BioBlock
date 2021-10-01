@@ -1,3 +1,4 @@
+export const SCORE_ID_GLOBAL = '$GLOBAL'
 export const SCORE_ID    = 'CmdEnt_Id'
 export const SCORE_FRAME = 'CmdEnt_Frame'
 export const SCORE_NEXT  = 'CmdEnt_Next'
@@ -10,8 +11,8 @@ export const TAG_GC       = 'CmdEnt_GC'
 
 export const NAMESPACE    = 'cmdent'
 
-export const TAG_ENTITY   = (entityname:string) => `CmdEnt_${entityname}`
-export const TAG_ENTITYPART = (entityname:string,partid:string) => `CmdEnt_${entityname}-${partid}`
+export const TAG_ENTITY   = (entityname:string) => `CmdEnt-${entityname}`
+export const TAG_ENTITYPART = (entityname:string,partid:string) => `CmdEnt-${entityname}-${partid}`
 
 export const ARMORSTAND_SELECTOR = (tags:string[] = [],scores:{[score:string]:string} = {},single:boolean=false):string => {
   let str_tag   = tags.map(tag => `,tag=${tag}`).join('')

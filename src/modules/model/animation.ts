@@ -53,7 +53,7 @@ const jsonToAnimator = (animator_json: animator_json, outliner: ModelOutliner): 
 
 export interface animation_json {
   name: string
-  loop: 'once'
+  loop: 'once'|'hold'|'loop'
   length: number
   animators: {
     [index: string]: animator_json
@@ -62,7 +62,7 @@ export interface animation_json {
 
 interface animation {
   name: string
-  loop: 'once'
+  loop: 'once'|'hold'|'loop'
   length: number
   animators: Modelanimator[]
 }
@@ -103,7 +103,7 @@ export const jsonToAnimation = (outliners: ModelOutliner[], animation_json: anim
 
 export class ModelAnimation implements animation {
   name: string
-  loop: 'once'
+  loop: 'once'|'hold'|'loop'
   length: number
   animators: Modelanimator[]
   constructor(animation:animation){

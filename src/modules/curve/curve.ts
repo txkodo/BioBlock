@@ -24,7 +24,8 @@ class Line implements segment {
     this.p2 = p2
   }
 
-  eval(t: number): number | undefined {
+  eval(time: number): number | undefined {
+    const t = time / (this.p2.t - this.p1.t)
     return (this.p1.t <= t && t < this.p2.t ?
       this.p1.y + (this.p2.y - this.p1.y) * t :
       undefined)
@@ -44,7 +45,8 @@ class Hermite implements segment {
     this.m2 = m2
   }
 
-  eval(t: number): number | undefined {
+  eval(time: number): number | undefined {
+    const t = time / (this.p2.t - this.p1.t)
     const y1 = this.p1.y
     const y2 = this.p2.y
     const m1 = this.m1

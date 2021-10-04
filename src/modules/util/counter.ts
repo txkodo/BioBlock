@@ -1,7 +1,7 @@
 export class Counter {
   private i: number;
-  constructor() {
-    this.i = -1
+  constructor(startnum = 0) {
+    this.i = startnum - 1
   }
   next() {
     this.i += 1

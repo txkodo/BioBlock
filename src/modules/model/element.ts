@@ -19,7 +19,7 @@ export interface element_json{
   }
 }
 
-export const jsonToElement = (textures:Texture[],resolution:resolution,json:element_json) => new ModelElement({
+export const jsonToElement = (textures:Texture[],resolution:resolution,json:element_json) => new BBElement({
   uuid : json.uuid,
   rescale : json.rescale,
   from : json.from,
@@ -53,7 +53,7 @@ interface element{
   }
 }
 
-export class ModelElement implements element{
+export class BBElement implements element{
   uuid:string
   rescale: boolean
   from: vec3

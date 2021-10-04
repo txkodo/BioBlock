@@ -1,6 +1,6 @@
-import { ModelAnimation, animation_json, jsonToAnimation } from "./animation"
-import { ModelElement as ModelElement, element_json, jsonToElement } from "./element"
-import { jsonToOutliner, ModelOutliner as ModelOutliner, outliner_json } from "./outliner"
+import { BBAnimation, animation_json, jsonToAnimation } from "./animation"
+import { BBElement as BBElement, element_json, jsonToElement } from "./element"
+import { jsonToOutliner, BBOutliner as BBOutliner, outliner_json } from "./outliner"
 import { resolution as Modelresolution } from "./resolution"
 import { Texture as ModelTexture, Texture } from "./texture"
 
@@ -59,20 +59,20 @@ interface bbmodel{
   meta:meta
   name:string
   resolution: Modelresolution
-  elements: ModelElement[]
-  outliner: ModelOutliner[]
+  elements: BBElement[]
+  outliner: BBOutliner[]
   textures: ModelTexture[]
-  animations: ModelAnimation[]
+  animations: BBAnimation[]
 }
 
 export class BBmodel implements bbmodel{
   meta:meta
   name:string
   resolution: Modelresolution
-  elements: ModelElement[]
-  outliner: ModelOutliner[]
+  elements: BBElement[]
+  outliner: BBOutliner[]
   textures: ModelTexture[]
-  animations: ModelAnimation[]
+  animations: BBAnimation[]
   
   constructor(bbmodel:bbmodel){
     this.meta = bbmodel.meta

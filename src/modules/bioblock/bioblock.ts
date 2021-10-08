@@ -1,4 +1,4 @@
-import { ANIMATION_FUNCTION, ARMORSTAND_SELECTOR, NAMESPACE, SCORE_FRAME, SCORE_ID, SCORE_ID_GLOBAL, SCORE_NEXT, TAG_ACTIVE, TAG_ALL, TAG_ENTITY, TAG_ENTITYPART, TAG_GC, TAG_SLEEP, TAG_TEMP } from "../command_entity/consts";
+import { ANIMATION_FUNCTION, ARMORSTAND_SELECTOR, NAMESPACE, SCORE_FRAME, SCORE_ID, SCORE_ID_GLOBAL, SCORE_NEXT, TAG_ACTIVE, TAG_ALL, TAG_ENTITY, TAG_ENTITYPART, TAG_GC, TAG_SLEEP, TAG_TEMP } from "./consts";
 import { Curve3D } from "../curve/curve3d";
 import { Timeline } from "../curve/effects";
 import { BBmodel, BBmodel_animation, BBmodel_animator, BBmodel_effect_animator, BBmodel_keyframe, BBmodel_outliner, isBBmodel_timeline_keyframe } from "../model/types/bbmodel";
@@ -42,12 +42,22 @@ export class BioBlock {
   datapack: Path
   resourcepack: Path
   item: modelItem;
+  tick_function: Path;
+  tick_tag: Path;
+  api_folder: Path;
+  core_folder: Path;
   constructor(models: BBmodel[], modelItem: modelItem) {
     this.item = modelItem
     this.datapack = new Path()
+    this.core_folder = this.datapack.child('data', NAMESPACE, 'functions','core')
+    this.api_folder = this.datapack.child('data', NAMESPACE, 'functions','api')
+
     this.resourcepack = new Path()
+
     const customModelData = new Counter(modelItem.start)
-    this.models = models.map(model => new BioBlockModel(this, model, this.funcstions_folder, this.models_folder, this.textures_folder, customModelData))
+    this.models = models.map(model => new BioBlockModel(this, model, this.api_folder,this.core_folder, this.models_folder, this.textures_folder, customModelData))
+    this.tick_function = this.funcstions_folder.child('core','tick.mcfunction')
+    this.tick_tag = this.datapack.child('data','minecraft','tags','functions','tick.json')
   }
 
   get funcstions_folder() {
@@ -62,10 +72,13 @@ export class BioBlock {
     return this.resourcepack.child('assets', NAMESPACE, 'textures')
   }
 
+
   export(): [Path, Path] {
     const model_overrides = this.models.flatMap(model => model.export())
 
     this.write_init_function()
+    this.wirte_tick_function()
+    this.wirte_tick_tag()
 
     this.write_itemmodel(model_overrides)
 
@@ -108,6 +121,23 @@ export class BioBlock {
     ]
     this.funcstions_folder.child('init.mcfunction').write_text(initfunc.join('\n'), true)
   }
+  
+  wirte_tick_function() {
+    const tickfunc = [
+      `execute if entity ${ARMORSTAND_SELECTOR({tags:{[TAG_GC]:true}})} run kill ${ARMORSTAND_SELECTOR({tags:{[TAG_GC]:true}})}`,
+      `tag ${ARMORSTAND_SELECTOR({tags:{[TAG_ALL]:true,[TAG_SLEEP]:false}})} add ${TAG_GC}`
+    ]
+    this.tick_function.write_text(tickfunc.join('\n'), true)
+  }
+
+  wirte_tick_tag() {
+    const ticktag = {
+      values: [
+        mcPath(this.tick_function)
+      ]
+    }
+    this.tick_tag.write_json(ticktag, true)
+  }
 
   write_itemmodel(model_overrides: JavaItemOverride[]) {
     const item_model = {
@@ -125,7 +155,6 @@ export class BioBlockModel {
   model: BBmodel;
   outliner: BioBlock_outliner[];
   bioblock: BioBlock;
-  functions_folder: Path;
   core_folder: Path;
   api_folder: Path;
   models_folder: Path;
@@ -138,44 +167,43 @@ export class BioBlockModel {
   tag: string;
   snooze: BioBlock_animation;
 
-  constructor(bioblock: BioBlock, model: BBmodel, functions: Path, models: Path, textures: Path, customModelDataCounter: Counter) {
+  constructor(bioblock: BioBlock, model: BBmodel, api: Path,core: Path, models: Path, textures: Path, customModelDataCounter: Counter) {
     this.bioblock = bioblock
     this.model = model
-    
-    this.functions_folder = functions.child(this.model.name)
-    this.core_folder = this.functions_folder.child('core')
-    this.api_folder = this.functions_folder.child('api')
-    
+
+    this.api_folder = api.child(this.model.name)
+    this.core_folder = core.child(this.model.name)
+
     this.models_folder = models.child(this.model.name)
     this.textures_folder = textures.child(this.model.name)
-    
+
     this.tag = TAG_ENTITY(model.name)
-    
+
     this.select_function = this.core_folder.child('__select__.mcfunction')
     this.sleep_function = this.core_folder.child('__sleep__.mcfunction')
     this.awake_function = this.core_folder.child('__awake__.mcfunction')
     this.summon_function = this.core_folder.child('__summon__.mcfunction')
 
     this.writeTextures()
-    
+
     const part_id = new Counter()
     const animation_id = new Counter(0)
-    const snooze_animation:BBmodel_animation = new BBmodel_animation({
+    const snooze_animation: BBmodel_animation = new BBmodel_animation({
       name: '__snooze__',
       loop: 'hold',
       length: 0.05,
       animators: {}
-    },model.outliner)
+    }, model.outliner)
     this.snooze = new BioBlock_animation(this, snooze_animation, animation_id.next(), this.core_folder)
-    this.outliner = model.outliner.map(outliner => new BioBlock_outliner(this, outliner, part_id, customModelDataCounter,this.textures_folder))
-    this.animations = model.animations.map(animation => new BioBlock_animation(this, animation,animation_id.next(),this.core_folder.child('animations')))
+    this.outliner = model.outliner.map(outliner => new BioBlock_outliner(this, outliner, part_id, customModelDataCounter, this.textures_folder))
+    this.animations = model.animations.map(animation => new BioBlock_animation(this, animation, animation_id.next(), this.core_folder.child('animations')))
 
   }
 
-  writeTextures(){
-    this.model.textures.map( texture => {
-      this.textures_folder.child(`${texture.id}.png`).write_bytes(base64mimeToBlob(texture.source),true)
-    } )
+  writeTextures() {
+    this.model.textures.map(texture => {
+      this.textures_folder.child(`${texture.id}.png`).write_bytes(base64mimeToBlob(texture.source), true)
+    })
   }
 
   setAnimation(animation: BBmodel_animation) {
@@ -184,7 +212,6 @@ export class BioBlockModel {
 
   export(): JavaItemOverride[] {
     //// Datapack
-    const core_folder = this.functions_folder.child('core')
     // summon
     this.writeSummonCommands()
     // awake
@@ -264,17 +291,17 @@ export class BioBlock_outliner {
   sub_outliner: BioBlock_outliner[];
   elements: BioBlock_element[];
 
-  constructor(bioblockmodel: BioBlockModel, outliner: BBmodel_outliner, part_id: Counter, custom_model_data: Counter, texture_path:Path) {
+  constructor(bioblockmodel: BioBlockModel, outliner: BBmodel_outliner, part_id: Counter, custom_model_data: Counter, texture_path: Path) {
     this.bioblockmodel = bioblockmodel
     this.outliner = outliner
-    this.elements = combine_elements(outliner.elements,bioblockmodel.model.resolution,texture_path).map(([JavaModel, origin, rotation]) => new BioBlock_element(bioblockmodel, JavaModel, origin, rotation, part_id.next().toString(), custom_model_data.next()))
-    this.sub_outliner = outliner.sub_outliner.map(child => new BioBlock_outliner(bioblockmodel, child, part_id, custom_model_data,texture_path))
+    this.elements = combine_elements(outliner.elements, bioblockmodel.model.resolution, texture_path).map(([JavaModel, origin, rotation]) => new BioBlock_element(bioblockmodel, JavaModel, origin, rotation, part_id.next().toString(), custom_model_data.next()))
+    this.sub_outliner = outliner.sub_outliner.map(child => new BioBlock_outliner(bioblockmodel, child, part_id, custom_model_data, texture_path))
     this.keyframes = new BioBlock_keyframes([], this.outliner.origin, this.outliner.rotation)
   }
 
   setAnimation(animation: BBmodel_animation) {
     this.sub_outliner.map(outliner => outliner.setAnimation(animation))
-    const keyframes = (animation.animators.find(animator => animator.outliner.uuid === this.outliner.uuid) ?? new BBmodel_animator({name:'_',keyframes:[]},this.outliner)).keyframes
+    const keyframes = (animation.animators.find(animator => animator.outliner.uuid === this.outliner.uuid) ?? new BBmodel_animator({ name: '_', keyframes: [] }, this.outliner)).keyframes
     this.keyframes = new BioBlock_keyframes(keyframes, this.outliner.origin, this.outliner.rotation)
   }
 
@@ -289,12 +316,12 @@ export class BioBlock_outliner {
     ]
   }
 
-  getRalativeOrigin(tick: number) {    
+  getRalativeOrigin(tick: number) {
     const origin = this.keyframes.position.eval(tick / 20)
-    return relativeOrigin([origin[0],origin[1],-origin[2]], this.keyframes.rotation.eval(tick / 20))
+    return relativeOrigin([origin[0], origin[1], -origin[2]], this.keyframes.rotation.eval(tick / 20))
   }
 
-  exportTpCommands(tick: number,matrix:matrix) {
+  exportTpCommands(tick: number, matrix: matrix) {
     const origin_matrix = matrix_mul(matrix, this.getRalativeOrigin(tick))
 
     let result: string[] = []
@@ -332,13 +359,13 @@ export class BioBlock_keyframes {
 }
 
 export class BioBlock_element {
-  
+
   exportTpCommand(origin_matrix: matrix): string[] {
-    const matrix = matrix_mul(origin_matrix, constructMatrix([this.origin[0],this.origin[1],-this.origin[2]],this.rotation))
+    const matrix = matrix_mul(origin_matrix, constructMatrix([this.origin[0], this.origin[1], -this.origin[2]], this.rotation))
     const [position, rotation] = deconstructMatrix(matrix)
     const result = [
-      `tp ${ARMORSTAND_SELECTOR({tags:{[TAG_ACTIVE]:true, [this.tag]:true},single:true})} ~${float_round(position[0] / 16, 5)} ~${float_round(position[1] / 16, 5) - 0.725} ~${float_round(-position[2] / 16, 5)} ~ ~`,
-      `data modify entity ${ARMORSTAND_SELECTOR({tags:{[TAG_ACTIVE]:true, [this.tag]:true},single:true})} Pose.Head set value [${float_round(-rotation[0], 5)}f,${float_round(rotation[1], 5)}f,${float_round(-rotation[2], 5)}f]`
+      `tp ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} ~${float_round(position[0] / 16, 5)} ~${float_round(position[1] / 16, 5) - 0.725} ~${float_round(-position[2] / 16, 5)} ~ ~`,
+      `data modify entity ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} Pose.Head set value [${float_round(-rotation[0], 5)}f,${float_round(rotation[1], 5)}f,${float_round(-rotation[2], 5)}f]`
     ]
     return result
   }
@@ -384,7 +411,7 @@ class BioBlock_animation {
   constructor(bioblockmodel: BioBlockModel, animation: BBmodel_animation, animation_id: number, animations_folder: Path) {
     this.bioblockmodel = bioblockmodel
     this.animation = animation
-    this.effect_animator = new BioBlock_effect_animator(bioblockmodel,animation.effect_animator)
+    this.effect_animator = new BioBlock_effect_animator(bioblockmodel, animation.effect_animator)
 
     this.api_function = this.bioblockmodel.api_folder.child(ANIMATION_FUNCTION(this.animation.name))
     this.animation_folder = animations_folder.child(this.animation.name)
@@ -478,19 +505,19 @@ class BioBlock_animation {
   }
 }
 
-class BioBlock_effect_animator{
+class BioBlock_effect_animator {
   timeline: Timeline;
-  exportCommands(tick: number):string[] {
+  exportCommands(tick: number): string[] {
     return this.timeline.eval(tick)
   }
   bioblockmodel: BioBlockModel;
-  constructor(bioblockmodel:BioBlockModel, animator:BBmodel_effect_animator){
+  constructor(bioblockmodel: BioBlockModel, animator: BBmodel_effect_animator) {
     this.bioblockmodel = bioblockmodel
     this.timeline = new Timeline()
 
     animator.keyframes.forEach(keyframe => {
-      if (isBBmodel_timeline_keyframe(keyframe)){
-        this.timeline.addScript(keyframe.time,keyframe.data_points[0])
+      if (isBBmodel_timeline_keyframe(keyframe)) {
+        this.timeline.addScript(keyframe.time, keyframe.data_points[0])
       }
     })
   }

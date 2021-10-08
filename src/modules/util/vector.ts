@@ -1,16 +1,19 @@
 
 type array3<T> = [T, T, T]
-interface Array3<T> extends array3<T> {
-  map<U>(callbackfn: (value: T, index: number, array: T[]) => U, thisArg?: any): U[]
-}
-type array12<T> = [T, T, T, T, T, T, T, T, T, T, T, T]
-interface Array12<T> extends array12<T> {
+export interface vec3<T = number> extends array3<T> {
   map<U>(callbackfn: (value: T, index: number, array: T[]) => U, thisArg?: any): U[]
 }
 
-export type vec3 = Array3<number>
+type array12<T> = [T, T, T, T, T, T, T, T, T, T, T, T]
+export interface matrix<T = number> extends array12<T> {
+  map<U>(callbackfn: (value: T, index: number, array: T[]) => U, thisArg?: any): U[]
+}
+
 export const vec3_neg = (v1: vec3) => {
   return v1.map(v => -v) as vec3
+}
+export const vec3_mul = (v1: vec3, s: number) => {
+  return v1.map((v, i) => v * s) as vec3
 }
 export const vec3_add = (v1: vec3, v2: vec3) => {
   return v1.map((v, i) => v + v2[i]) as vec3
@@ -18,8 +21,6 @@ export const vec3_add = (v1: vec3, v2: vec3) => {
 export const vec3_sub = (v1: vec3, v2: vec3) => {
   return v1.map((v, i) => v - v2[i]) as vec3
 }
-
-export type matrix = Array12<number>
 
 export const matrix_mul = (m1: matrix, m2: matrix) => {
   let result: matrix = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -69,6 +70,8 @@ export const transpose_matrix = (transpose: vec3) => {
     0, 0, 1, z
   ] as matrix
 }
+
+export const invertZ = (transpose: vec3): vec3 => [transpose[0], transpose[1], -transpose[2]]
 
 export const relativeOrigin = (transpose: vec3, rotation: vec3) => {
   return matrix_mul(constructMatrix(transpose, rotation), transpose_matrix(vec3_neg(transpose)))

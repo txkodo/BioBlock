@@ -1,4 +1,4 @@
-import { vec3 } from "../vector"
+import { vec3 } from "../util/vector"
 import { Curve } from "./curve"
 
 export class Curve3D {

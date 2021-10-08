@@ -1,2 +1,2 @@
 import "./app.scss";
-import "./modules/front/bb_droparea"
+import "./modules/io/bb_droparea"

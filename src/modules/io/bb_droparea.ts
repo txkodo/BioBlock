@@ -1,7 +1,9 @@
-import { CEPack } from "../command_entity/command_entity"
-import { bbmodel_json, jsonToBBmodel } from "../model/bbmodel"
+import { BioBlock, getModelItem } from "../bioblock/bioblock"
+import { BBmodel } from "../model/types/bbmodel"
+import { bbmodel_json } from "../model/types/bbmodel_json"
 import { DropArea } from "../style/filedrop"
 import { FileReaderSync } from "../util/filrreader_sync"
+import { saveAs } from 'file-saver'
 
 const onSelected = async (files: FileList, dropArea: DropArea) => {
   // ファイルが選択されなかった場合
@@ -54,7 +56,7 @@ new DropArea({
 })
 
 const read_bbmodels = async (bbmodel_jsons: bbmodel_json[]) => {
-  const pack = new CEPack(bbmodel_jsons.map(jsonToBBmodel), 'minecraft:bone')
+  const pack = new BioBlock(bbmodel_jsons.map(json => new BBmodel(json)), getModelItem('minecraft:bone'))
   const [datapack, resourcepack] = pack.export()
   saveAs(await datapack.exportZip(), 'Datapack')
   saveAs(await resourcepack.exportZip(), 'Resourcepack')

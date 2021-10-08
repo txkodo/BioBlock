@@ -1,4 +1,4 @@
-import { vec3 } from "../vector";
+import { vec3 } from "../util/vector";
 import { BBElement } from "./element";
 
 export interface outliner_json{

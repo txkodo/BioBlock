@@ -1,4 +1,4 @@
-import { constructMatrix, vec3 } from "../vector";
+import { constructMatrix, vec3 } from "../util/vector";
 import { resolution } from "./resolution";
 import { Texture } from "./texture";
 
@@ -25,7 +25,7 @@ export const jsonToElement = (textures:Texture[],resolution:resolution,json:elem
   from : json.from,
   to : json.to,
   origin : json.origin,
-  rotation : json.rotation,
+  rotation : json.rotation??[0,0,0],
   faces : {
     north : json.faces.north?jsonToFace(textures,resolution,json.faces.north):undefined,
     south : json.faces.south?jsonToFace(textures,resolution,json.faces.south):undefined,
@@ -42,7 +42,7 @@ interface element{
   from: vec3
   to: vec3
   origin:vec3
-  rotation?:vec3
+  rotation:vec3
   faces:{
     north?:face
     south?:face
@@ -77,13 +77,12 @@ export class BBElement implements element{
     this.rotation = element.rotation??[0,0,0]
     this.faces    = element.faces
   }
-
-  matrix(){
-    return constructMatrix(this.origin,this.rotation)
-  }
 }
 
+
+
 export interface face_json{
+  rotation?:0|90|180|270
   uv:[number,number,number,number]
   texture:number
 }
@@ -91,12 +90,14 @@ export interface face_json{
 export interface face{
   uv:[number,number,number,number]
   texture:Texture
+  rotation:0|90|180|270
 }
 
 export type uv_json = [number,number,number,number]
 export type uv = [number,number,number,number]
 
 const jsonToFace = (textures:Texture[],resolution:resolution,json:face_json):face => ({
+  rotation:json.rotation??0,
   uv:json.uv.map((v,i)=>v/resolution[i%2==0?'width':'height']) as uv,
   texture:textures[json.texture]
 })

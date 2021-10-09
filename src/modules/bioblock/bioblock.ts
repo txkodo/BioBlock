@@ -256,8 +256,7 @@ export class BioBlockModel {
     ]
     this.summon_function.write_text(summon_commands.join('\n'), true)
     const api_commands = [
-      `execute unless entity ${ARMORSTAND_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${mcPath(this.summon_api_function)} must be called as ${ARMORSTAND_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, as_executer: true })}"}`,
-      `execute if entity ${ARMORSTAND_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run function ${mcPath(this.summon_function)}`
+      `function ${mcPath(this.summon_function)}`
     ]
     this.summon_api_function.write_text(api_commands.join('\n'), true)
   }

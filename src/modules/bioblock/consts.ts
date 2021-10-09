@@ -1,18 +1,18 @@
 export const SCORE_ID_GLOBAL = '$GLOBAL'
-export const SCORE_ID    = 'CmdEnt_Id'
-export const SCORE_FRAME = 'CmdEnt_Frame'
-export const SCORE_NEXT  = 'CmdEnt_Next'
+export const SCORE_ID    = 'BioBlock_Id'
+export const SCORE_FRAME = 'BioBlock_Frame'
+export const SCORE_NEXT  = 'BioBlock_Next'
 
-export const TAG_ALL      = 'CmdEnt'
-export const TAG_TEMP     = 'CmdEnt_'
-export const TAG_ACTIVE   = 'CmdEnt_ACTIVE'
-export const TAG_GC       = 'CmdEnt_GC'
-export const TAG_SLEEP    = 'CmdEnt_SLEEP'
+export const TAG_ALL      = 'BioBlock'
+export const TAG_TEMP     = 'BioBlock_'
+export const TAG_ACTIVE   = 'BioBlock_ACTIVE'
+export const TAG_GC       = 'BioBlock_GC'
+export const TAG_SLEEP    = 'BioBlock_SLEEP'
 
-export const NAMESPACE    = 'cmdent'
+export const NAMESPACE    = 'bioblock'
 
-export const TAG_ENTITY   = (entityname:string) => `CmdEnt-${entityname}`
-export const TAG_ENTITYPART = (entityname:string,partid:string) => `CmdEnt-${entityname}-${partid}`
+export const TAG_ENTITY   = (entityname:string) => `BioBlock-${entityname}`
+export const TAG_ENTITYPART = (entityname:string,partid:string) => `BioBlock-${entityname}-${partid}`
 
 export const ANIMATION_FUNCTION = (animation_name:string) => `animation-${animation_name}.mcfunction`
 

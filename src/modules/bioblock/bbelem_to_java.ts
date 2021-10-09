@@ -81,7 +81,7 @@ const matrix2face = (matrix: matrix): [Direction, 0 | 90 | 180 | 270] => {
         return key
       }
     }
-    throw new ModelConvertError(`変換後の面の回転方向が解決できません,${matrix}`)
+    throw new BioBlockConvertError(`変換後の面の回転方向が解決できません,${matrix}`)
   }
 
   let axis: 'x' | 'y' | 'z'
@@ -118,17 +118,17 @@ const matrix2face = (matrix: matrix): [Direction, 0 | 90 | 180 | 270] => {
       break;
 
     default:
-      throw new ModelConvertError(matrix.toString())
+      throw new BioBlockConvertError(matrix.toString())
   }
   return [direction, find_rotation(direction, matrix)]
 }
 
-import { ModelConvertError } from "../command_entity/error"
 import { JavaElement, JavaElementAngle, JavaFace, JavaFaces, JavaModel, JavaRotation } from "../model/types/java_model"
 import { Axis, Direction } from "../model/types/general_model"
 import { BBmodel_element, BBmodel_face, BBmodel_resolution } from "../model/types/bbmodel"
 import { Path } from "../util/folder"
 import { mcPath } from "../util/datapack"
+import { BioBlockConvertError } from "./bioblock"
 type right_angled = 0 | 90 | 180 | 270
 
 export const rotateJavaElement = (element: JavaElement, rotation: vec3<right_angled>): JavaElement => {

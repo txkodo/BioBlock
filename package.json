@@ -11,15 +11,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://txkodo@github.com/txkodo/CommandEntity.git"
+    "url": "git+https://txkodo@github.com/txkodo/BioBlock.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/txkodo/CommandEntity/issues"
+    "url": "https://github.com/txkodo/BioBlock/issues"
   },
-  "homepage": "https://github.com/txkodo/CommandEntity#readme",
+  "homepage": "https://github.com/txkodo/BioBlock#readme",
   "devDependencies": {
     "@types/file-saver": "^2.0.3",
     "autoprefixer": "^10.3.5",

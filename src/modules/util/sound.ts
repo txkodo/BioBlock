@@ -16,7 +16,6 @@ export const mp3ToOgg = async (mp3:Blob) => {
     LOOPSTART: "10000",
     LOOPLENGTH: "30000"
   };
-  console.log(encoder);
   
   const encoder_ = new encoder(sampleRate, numberOfChannels, quality, tags);
   encoder_.encodeFrom(audioBuffer);

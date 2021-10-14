@@ -1,6 +1,6 @@
 import { ANIMATION_FUNCTION, ARMORSTAND_SELECTOR, NAMESPACE, SCORE_FRAME, SCORE_ID, SCORE_ID_GLOBAL, SCORE_NEXT, SOUND_FILE, TAG_ACTIVE, TAG_ALL, TAG_ENTITY, TAG_ENTITYPART, TAG_GC, TAG_SLEEP, TAG_TEMP } from "./consts";
 import { Curve3D } from "../curve/curve3d";
-import { Timeline } from "../curve/effects";
+import { ScriptOptions, Timeline } from "../curve/effects";
 import { BBmodel, BBmodel_animation, BBmodel_animator, BBmodel_effect_animator, BBmodel_keyframe, BBmodel_outliner, isBBmodel_sound_keyframe, isBBmodel_timeline_keyframe } from "../model/types/bbmodel";
 import { JavaItemOverride, JavaModel } from "../model/types/java_model";
 import { base64mimeToBlob } from "../util/base64blob";
@@ -8,7 +8,7 @@ import { Counter } from "../util/counter";
 import { mcPath } from "../util/datapack";
 import { Path } from "../util/folder";
 import { float_round } from "../util/number";
-import { constructMatrix, deconstructMatrix, matrix, matrix_mul, relativeOrigin, UNIT_MATRIX, vec3, vec3_add } from "../util/vector";
+import { constructMatrix, deconstructMatrix, invertZ, matrix, matrix_mul, relativeOrigin, UNIT_MATRIX, vec3, vec3_add } from "../util/vector";
 import { combine_elements } from "./bbelem_to_java";
 import { sound_json } from "../model/types/resourcepack";
 
@@ -179,7 +179,6 @@ export class BioBlock {
   setSoundFiles(files: { [key: string]: File }): void {
     const json: sound_json = {}
     Object.keys(files).forEach(key => {
-      console.log(this.sounds, key);
       const sound_id = this.sounds[key].toString()
       const sound_file = SOUND_FILE(sound_id)
       this.sounds_folder.child(sound_id + '.ogg').write_bytes(files[key], true)
@@ -360,14 +359,27 @@ export class BioBlock_outliner {
   outliner: BBmodel_outliner;
   keyframes: BioBlock_keyframes;
   sub_outliner: BioBlock_outliner[];
-  elements: BioBlock_element[];
+  elements?: BioBlock_element[];
+  matrix: matrix;
 
   constructor(bioblockmodel: BioBlockModel, outliner: BBmodel_outliner, part_id: Counter, custom_model_data: Counter, texture_path: Path) {
     this.bioblockmodel = bioblockmodel
     this.outliner = outliner
-    this.elements = combine_elements(outliner.elements, bioblockmodel.model.resolution, texture_path).map(([JavaModel, origin, rotation]) => new BioBlock_element(bioblockmodel, JavaModel, origin, rotation, part_id.next().toString(), custom_model_data.next()))
+    if (outliner.elements){
+      this.elements = combine_elements(outliner.elements, bioblockmodel.model.resolution, texture_path).map(([JavaModel, origin, rotation]) => new BioBlock_element(bioblockmodel, JavaModel, origin, rotation, part_id.next().toString(), custom_model_data.next()))
+    }
     this.sub_outliner = outliner.sub_outliner.map(child => new BioBlock_outliner(bioblockmodel, child, part_id, custom_model_data, texture_path))
     this.keyframes = new BioBlock_keyframes([], this.outliner.origin, this.outliner.rotation)
+    this.matrix = constructMatrix(invertZ(this.outliner.origin),this.outliner.rotation)
+  }
+
+  findOutliner(name: string): BioBlock_outliner[] {
+    let result:BioBlock_outliner[] = []
+    if (this.outliner.name === name) {
+      result.push(this)
+    }
+    this.sub_outliner.forEach(sub => {result = result.concat(sub.findOutliner(name))})
+    return result
   }
 
   setAnimation(animation: BBmodel_animation) {
@@ -377,14 +389,19 @@ export class BioBlock_outliner {
   }
 
   exportSummons(): string[] {
-    return [...this.elements.map(element => element.exportSummon()), ...this.sub_outliner.flatMap(outliner => outliner.exportSummons())]
+    return [...this.elements?.map(element => element.exportSummon())??[], ...this.sub_outliner.flatMap(outliner => outliner.exportSummons())]
   }
 
   writeModels(entitymodel_folder: Path): JavaItemOverride[] {
     return [
-      ...this.elements.map(element => element.writeModel(entitymodel_folder)),
+      ...this.elements?.map(element => element.writeModel(entitymodel_folder))??[],
       ...this.sub_outliner.flatMap(outliner => outliner.writeModels(entitymodel_folder))
     ]
+  }
+
+  getMatrix(tick: number) {
+    const origin = this.keyframes.position.eval(tick / 20)
+    return constructMatrix( invertZ(origin), this.keyframes.rotation.eval(tick / 20))
   }
 
   getRalativeOrigin(tick: number) {
@@ -393,10 +410,11 @@ export class BioBlock_outliner {
   }
 
   exportTpCommands(tick: number, matrix: matrix) {
+    this.matrix = matrix_mul(matrix, this.getMatrix(tick))
     const origin_matrix = matrix_mul(matrix, this.getRalativeOrigin(tick))
 
     let result: string[] = []
-    this.elements.forEach(element => {
+    this.elements?.forEach(element => {
       result.push(...element.exportTpCommand(origin_matrix))
     })
     this.sub_outliner.forEach(outline => {
@@ -585,14 +603,48 @@ class BioBlock_effect_animator {
   constructor(bioblockmodel: BioBlockModel, animator: BBmodel_effect_animator) {
     this.bioblockmodel = bioblockmodel
     this.timeline = new Timeline()
-
     animator.keyframes.forEach(keyframe => {
       if (isBBmodel_timeline_keyframe(keyframe)) {
-        this.timeline.addScript(keyframe.time, keyframe.data_points[0])
+        const script = keyframe.data_points[0].script
+        script.split('\n+').forEach(command => {
+          const [cmd, options] = this.decode_script(command)
+          this.timeline.addScript(keyframe.time, cmd, options)
+        });
       } else if (isBBmodel_sound_keyframe(keyframe)) {
         const sound_name = this.bioblockmodel.bioblock.requireSound(keyframe.data_points[0].file)
-        this.timeline.addScript(keyframe.time, { script: `playsound ${SOUND_FILE(sound_name.toString())} hostile @a ~ ~ ~` })
+        this.timeline.addScript(keyframe.time, `playsound ${SOUND_FILE(sound_name.toString())} hostile @a ~ ~ ~`, {})
       }
     })
+  }
+  decode_script = (script: string): [string, ScriptOptions] => {
+    const matches = script.match(/^\s*\[((?:\s*\d+\s*\.\.\s*\d*\s*)?)((?:\s*@[a-zA-Z0-9_-]+\s*)?)\]\s*(.*)\s*/)
+    const option: ScriptOptions = {}
+    if (matches) {
+      script = matches[3]
+      const time = matches[1]
+      if (time) {
+        const segments = time.match(/\s*(\d+)\s*\.\.\s*(\d*)\s*/) as RegExpMatchArray
+        option.time = {
+          start: parseInt(segments[1]),
+          end: segments[2] ? parseInt(segments[2]) : undefined
+        }
+      }
+      const position = matches[2]
+      if (position) {
+        const segments = position.match(/\s*@([a-zA-Z0-9_-]+)\s*/) as RegExpMatchArray
+        const name = segments[1]
+        const outliners = this.bioblockmodel.outliner.flatMap( outline => outline.findOutliner(name))
+
+        option.positions = outliners.map( outliner => {
+          return () => {
+            const [position,rotation] = deconstructMatrix(outliner.matrix);
+            return `execute positioned ~${float_round(position[0] / 16, 5)} ~${float_round(position[1] / 16, 5)} ~${-float_round(position[2] / 16, 5)}` +
+            ` rotated ~${-float_round(rotation[2],5)} ~${float_round(rotation[2],5)} run `
+          }
+        } )
+      }
+    }
+    
+    return [script, option]
   }
 }

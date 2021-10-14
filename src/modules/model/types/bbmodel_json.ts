@@ -49,6 +49,7 @@ export type bbmodel_face_rotation_json = 0|90|180|270
 export type bbmodel_face_uv_json = [number,number,number,number]
 
 export type bbmodel_outliner_json = {
+  name     :string
   uuid     :string
   origin   :vec3
   rotation?:vec3

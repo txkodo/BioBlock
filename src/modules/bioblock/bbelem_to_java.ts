@@ -212,14 +212,12 @@ const optimizeJavaModel = (javaModel: JavaModel): [JavaModel, vec3] => {
     to: vec3_add(vec3_mul(vec3_sub(element.to, center), 1 / scale), [8, 8, 8]),
     faces: element.faces,
   }))
-  
-  console.log(bbox);
-  console.log(center);
-  console.log(copy.elements);
   return [copy, center]
 }
 
 export const combine_elements = (elements: BBmodel_element[],resolution:BBmodel_resolution,texture_path:Path): [JavaModel, vec3, vec3][] => {
+
+  let has_standard_basis = false
   const elements_in_standard_basis: JavaModel = {
     textures: {},
     elements: [],
@@ -252,6 +250,7 @@ export const combine_elements = (elements: BBmodel_element[],resolution:BBmodel_
         multiple90[i] = x - java_rotation.angle as right_angled
       }
     })
+    has_standard_basis ||= standard_basis
 
     // 標準座標系に乗る場合
     if (standard_basis) {
@@ -309,5 +308,5 @@ export const combine_elements = (elements: BBmodel_element[],resolution:BBmodel_
   
   const [new_model, offset] = optimizeJavaModel(elements_in_standard_basis)
   const bioblock_standard_basis: [JavaModel, vec3, vec3] = [new_model, offset, [0, 0, 0]]
-  return [bioblock_standard_basis, ...elements_in_other_basis]
+  return [...has_standard_basis?[bioblock_standard_basis]:[], ...elements_in_other_basis]
 }

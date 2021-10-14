@@ -1,6 +1,6 @@
 import { time_to_tick } from "../util/tick";
 
-type scriptTimeline_josn = {
+type scriptTimeline_json = {
   script: string
 }
 
@@ -10,24 +10,26 @@ interface ScriptTimeline {
 
 class ScriptPoint {
   tick: number;
-  script: string;
-  constructor(time: number, script: string) {
+  script: () => string;
+  constructor(time: number, script:() => string) {
     this.tick = time_to_tick(time)
     this.script = script
   }
 
   eval(tick: number): string[] {
-    return tick == this.tick ? [this.script] : []
+    return tick == this.tick ? [this.script()] : []
   }
 }
 
+
 class ScriptSequence {
   tick: number;
-  script: string;
   span: number;
   start: number;
   step: number;
-  constructor(time: number, script: string, start: number, end: number) {
+  script: () => string;
+  constructor(time: number, script:()=> string, start: number, end: number | undefined) {
+    end ??= Infinity
     this.tick = time_to_tick(time)
     this.script = script
     this.start = start
@@ -39,11 +41,19 @@ class ScriptSequence {
     const tick_difference = tick - this.tick
     return 0 <= tick_difference && tick_difference <= this.span ?
       [
-        this.script
+        this.script()
           .replace('(?<!\\)%', (this.start + this.step * tick_difference).toString())
           .replace('\\%', '%')
       ] : []
   }
+}
+
+export type ScriptOptions = {
+  time?: {
+    start: number
+    end?: number
+  }
+  positions?: (() => string)[]
 }
 
 export class Timeline {
@@ -53,16 +63,18 @@ export class Timeline {
     this.scripts = []
   }
 
-  addScript(time: number, script_json: scriptTimeline_josn) {
-    const script = script_json.script
-    script.split('\n+').forEach(command => {
-      const matches = command.match(/^\s*\[\s*(\d+)\s*\.\.\s*(\d+)\s*\]\s*(.*)\s*/)
-      if (matches) {
-        this.scripts.push(new ScriptSequence(time, matches[3], parseInt(matches[1]), parseInt(matches[2])))
-      } else {
-        this.scripts.push(new ScriptPoint(time, script))
-      }
-    });
+  addScript(time: number, script: string, options: ScriptOptions) {
+    let scriptgen = () => script
+    const pos = options.positions
+    if (pos !== undefined){
+      scriptgen = () => pos.map( pos => pos() + script ).join('\n')
+    }
+
+    if (options.time?.start === undefined) {
+      this.scripts.push(new ScriptPoint(time, scriptgen))
+    } else {
+      this.scripts.push(new ScriptSequence(time, scriptgen, options.time.start, options.time.end))
+    }
   }
 
   eval(tick: number): string[] {

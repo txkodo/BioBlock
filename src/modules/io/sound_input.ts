@@ -28,8 +28,6 @@ export class SoundInput extends DropArea {
       li.classList.add(this.sounds[sound_name]?'li-exist':'li-lack')
     });
     if (this.onchanged){
-      console.log(ready);
-      
       this.onchanged(ready)
     }
   }

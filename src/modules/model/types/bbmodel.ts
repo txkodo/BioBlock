@@ -7,8 +7,7 @@ export class BBmodelError extends Error {
     super(message)
   }
 }
-const throwBBmodelError = (message?: string) => { console.log(message);
- throw new BBmodelError(message) }
+const throwBBmodelError = (message?: string) => {throw new BBmodelError(message) }
 
 export class BBmodel {
   meta: BBmodel_meta
@@ -82,8 +81,10 @@ export class BBmodel_outliner {
   rotation: vec3
   elements: BBmodel_element[]
   sub_outliner: BBmodel_outliner[]
+  name: string
   constructor(json: bbmodel_outliner_json, elements: BBmodel_element[]) {
     this.uuid = json.uuid
+    this.name = json.name
     this.origin = json.origin
     this.rotation = json.rotation ?? [0, 0, 0]
     this.elements = json.children.filter(child => typeof child === 'string').map(uuid => elements.find(element => element.uuid === uuid) ?? throwBBmodelError(`cannot find element{uuid:${uuid}}.`))

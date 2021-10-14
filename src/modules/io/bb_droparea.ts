@@ -3,43 +3,60 @@ import { BBmodel } from "../model/types/bbmodel"
 import { bbmodel_json } from "../model/types/bbmodel_json"
 import { DropArea } from "../style/filedrop"
 import { FileReaderSync } from "../util/filrreader_sync"
-import { saveAs } from 'file-saver'
+import { SoundInput, sound_input } from "./sound_input"
 
-const onSelected = async (files: FileList, dropArea: DropArea) => {
-  // ファイルが選択されなかった場合
-  if (files[0] === undefined) {
-    dropArea.removeFiles()
-    dropArea.setLog("ファイルが選択されていません")
-    return
-  }
-  
-  const file = files[0]
-  
-  // ファイルが.bbmodelでなかった場合
-  if (!file.name.endsWith('.bbmodel')) {
-    dropArea.removeFiles()
-    dropArea.setLog("エラー：拡張子が.bbmodelである必要があります")
-    return
+export class BBmodelArea extends DropArea {
+  pack: BioBlock | undefined
+  sound_input: SoundInput
+
+  constructor(option: {
+    dropArea: HTMLInputElement;
+    fileInput: HTMLInputElement;
+    fileInput_name: HTMLElement;
+    fileInput_log: HTMLElement;
+  },sound_input: SoundInput) {
+    super(option)
+    this.sound_input = sound_input
   }
 
-  const reader = new FileReaderSync();
-
-  const filecontents = []
-  
-  for (let i = 0;i<files.length;i++){
-    const filecontent = await reader.readAsText(files[i])
-    
-    if (! filecontent){
-      dropArea.removeFiles()
-      dropArea.setLog(".bbmodelファイルの読み込み中にエラーが発生しました")
+  async setFiles(files: FileList) {
+    // ファイルが選択されなかった場合
+    if (files[0] === undefined) {
+      this.removeFiles()
+      this.setLog("ファイルが選択されていません")
       return
     }
-    filecontents.push(filecontent)
+
+    const reader = new FileReaderSync();
+    
+    const filecontents = []
+    const filenames    = []
+    
+    for (let i = 0; i < files.length; i++) {
+
+      // ファイルが.bbmodelでなかった場合
+      if (!files[i].name.endsWith('.bbmodel')) {
+        this.removeFiles()
+        this.setLog("エラー：拡張子が.bbmodelである必要があります")
+        return
+      }
+      
+      // ファイルが読み込めなかった場合
+      const filecontent = await reader.readAsText(files[i])
+      if (!filecontent) {
+        this.removeFiles()
+        this.setLog(".bbmodelファイルの読み込み中にエラーが発生しました")
+        return
+      }
+      filenames.push(files[i].name)
+      filecontents.push(filecontent)
+    }
+    const bbmodels = filecontents.map(filecontent => JSON.parse(filecontent as string) as bbmodel_json);
+    this.pack = new BioBlock(bbmodels.map(json => new BBmodel(json)), getModelItem('minecraft:bone'))
+    this.sound_input.setRequiresdFiles(this.pack.getSoundList())
+    fileInput_name.textContent = filenames.join(' ')
+    return
   }
-
-  const bbmodels = filecontents.map(filecontent => JSON.parse(filecontent as string));
-
-  await read_bbmodels(bbmodels)
 }
 
 const fileInput = <HTMLInputElement>document.getElementById('BBinputFile_input')
@@ -47,17 +64,10 @@ const fileInput_name = <HTMLInputElement>document.getElementById('BBinputFile_na
 const fileInput_log = <HTMLInputElement>document.getElementById('BBinputFile_log')
 const dropArea = <HTMLInputElement>document.getElementById('BBdropArea')
 
-new DropArea({
+export const model_input = new BBmodelArea({
   dropArea,
   fileInput,
   fileInput_name,
-  fileInput_log,
-  onSelected
-})
+  fileInput_log
+},sound_input)
 
-const read_bbmodels = async (bbmodel_jsons: bbmodel_json[]) => {
-  const pack = new BioBlock(bbmodel_jsons.map(json => new BBmodel(json)), getModelItem('minecraft:bone'))
-  const [datapack, resourcepack] = pack.export()
-  saveAs(await datapack.exportZip(), 'Datapack')
-  saveAs(await resourcepack.exportZip(), 'Resourcepack')
-}

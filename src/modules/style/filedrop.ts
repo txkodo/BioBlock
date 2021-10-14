@@ -1,36 +1,26 @@
 export class DropArea {
-  files: FileList|undefined;
+  files: FileList | undefined;
   logElem: HTMLElement;
   nemeElem: HTMLElement;
+  droparea: HTMLInputElement;
 
-  constructor(option:{
+  constructor(option: {
     dropArea: HTMLInputElement,
     fileInput: HTMLInputElement,
     fileInput_name: HTMLElement,
-    fileInput_log: HTMLElement,
-    onSelected: (f: FileList,dropArea:DropArea) => void
+    fileInput_log: HTMLElement
   }) {
+    this.droparea = option.dropArea
     this.files = undefined
     this.nemeElem = option.fileInput_name
-    this.logElem  = option.fileInput_log
-
-    const setFiles = (files:FileList) => {
-      this.files = files
-      let filenames = []
-      for(let i=0;i<files.length;i++){
-        filenames.push(files[i].name)
-      }
-      option.fileInput_name.textContent = filenames.join('\n')
-      option.fileInput_log.textContent = ''
-      option.onSelected(files,this)
-    }
+    this.logElem = option.fileInput_log
 
     // ドラッグオーバー
     option.dropArea.addEventListener('dragover', function (e) {
       e.preventDefault();
       option.dropArea.classList.add('active');
     });
-    
+
     // ドラッグアウト
     option.dropArea.addEventListener('dragleave', e => {
       e.preventDefault();
@@ -38,7 +28,7 @@ export class DropArea {
     });
 
     // ドロップ時の処理
-    option.dropArea.addEventListener('drop', e => {
+    option.dropArea.addEventListener('drop', async e => {
       e.preventDefault();
       option.dropArea.classList.remove('active');
 
@@ -48,34 +38,34 @@ export class DropArea {
       // 取得したファイルをinput[type=file]へ
       option.fileInput.files = files;
 
-      setFiles(files)
+      await this.setFiles(files)
     })
-    
-    option.fileInput.addEventListener('change', (e: Event) => {
+
+    option.fileInput.addEventListener('change', async (e: Event) => {
       const files = (e.target as HTMLInputElement).files as FileList;
-      setFiles(files)
+      await this.setFiles(files)
       option.fileInput = option.fileInput;
     })
   }
-  
-  removeFiles(){
+
+  async setFiles(file: FileList) {
+    throw new Error("Method not implemented.");
+  }
+
+  removeFiles() {
     this.files = undefined
     this.nemeElem.textContent = ''
   }
 
-  setFiles(files:FileList){
-    this.files = files
-  }
-  
-  getFiles(){
-      return this.files
+  getFiles() {
+    return this.files
   }
 
-  setLog(error:string){
+  setLog(error: string) {
     this.logElem.textContent = error
   }
 
-  clearLog(){
+  clearLog() {
     this.logElem.textContent = ''
   }
 }

@@ -41,6 +41,7 @@ $half_font : 0.5rem;
 
 .button {
   @extend %wrapper;
+  font-weight: 900;
   padding-right: 1rem;
   padding-left : 1rem;
   margin: $half_font;
@@ -73,4 +74,8 @@ $half_font : 0.5rem;
     margin: 10px;
     content: "ここに .bbmodel ファイルをドロップしてください";
   }
+}
+
+.hide {
+  display: none;
 }

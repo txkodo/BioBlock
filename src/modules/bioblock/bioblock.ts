@@ -1,7 +1,7 @@
-import { ANIMATION_FUNCTION, ARMORSTAND_SELECTOR, NAMESPACE, SCORE_FRAME, SCORE_ID, SCORE_ID_GLOBAL, SCORE_NEXT, TAG_ACTIVE, TAG_ALL, TAG_ENTITY, TAG_ENTITYPART, TAG_GC, TAG_SLEEP, TAG_TEMP } from "./consts";
+import { ANIMATION_FUNCTION, ARMORSTAND_SELECTOR, NAMESPACE, SCORE_FRAME, SCORE_ID, SCORE_ID_GLOBAL, SCORE_NEXT, SOUND_FILE, TAG_ACTIVE, TAG_ALL, TAG_ENTITY, TAG_ENTITYPART, TAG_GC, TAG_SLEEP, TAG_TEMP } from "./consts";
 import { Curve3D } from "../curve/curve3d";
 import { Timeline } from "../curve/effects";
-import { BBmodel, BBmodel_animation, BBmodel_animator, BBmodel_effect_animator, BBmodel_keyframe, BBmodel_outliner, isBBmodel_timeline_keyframe } from "../model/types/bbmodel";
+import { BBmodel, BBmodel_animation, BBmodel_animator, BBmodel_effect_animator, BBmodel_keyframe, BBmodel_outliner, isBBmodel_sound_keyframe, isBBmodel_timeline_keyframe } from "../model/types/bbmodel";
 import { JavaItemOverride, JavaModel } from "../model/types/java_model";
 import { base64mimeToBlob } from "../util/base64blob";
 import { Counter } from "../util/counter";
@@ -10,6 +10,7 @@ import { Path } from "../util/folder";
 import { float_round } from "../util/number";
 import { constructMatrix, deconstructMatrix, matrix, matrix_mul, relativeOrigin, UNIT_MATRIX, vec3, vec3_add } from "../util/vector";
 import { combine_elements } from "./bbelem_to_java";
+import { sound_json } from "../model/types/resourcepack";
 
 export class BioBlockConvertError extends Error {
   constructor(message?: string | undefined) {
@@ -38,6 +39,8 @@ export type modelItem = {
 }
 
 export class BioBlock {
+  sounds_folder: Path;
+  sounds: { [key: string]: number }
   models: BioBlockModel[];
   datapack: Path
   resourcepack: Path
@@ -46,18 +49,27 @@ export class BioBlock {
   tick_tag: Path;
   api_folder: Path;
   core_folder: Path;
+  sounds_json: Path;
   constructor(models: BBmodel[], modelItem: modelItem) {
+    this.sounds = {}
     this.item = modelItem
     this.datapack = new Path()
-    this.core_folder = this.datapack.child('data', NAMESPACE, 'functions','core')
-    this.api_folder = this.datapack.child('data', NAMESPACE, 'functions','api')
+    this.core_folder = this.datapack.child('data', NAMESPACE, 'functions', 'core')
+    this.api_folder = this.datapack.child('data', NAMESPACE, 'functions', 'api')
 
     this.resourcepack = new Path()
 
+    this.sounds_folder = this.resourcepack.child('assets', NAMESPACE, 'sounds')
+    this.sounds_json = this.resourcepack.child('assets', NAMESPACE, 'sounds.json')
+
     const customModelData = new Counter(modelItem.start)
-    this.models = models.map(model => new BioBlockModel(this, model, this.api_folder,this.core_folder, this.models_folder, this.textures_folder, customModelData))
-    this.tick_function = this.funcstions_folder.child('core','tick.mcfunction')
-    this.tick_tag = this.datapack.child('data','minecraft','tags','functions','tick.json')
+    this.models = models.map(model => new BioBlockModel(this, model, this.api_folder, this.core_folder, this.models_folder, this.textures_folder, customModelData))
+    this.tick_function = this.funcstions_folder.child('core', 'tick.mcfunction')
+    this.tick_tag = this.datapack.child('data', 'minecraft', 'tags', 'functions', 'tick.json')
+  }
+
+  get needSoundFiles(): boolean {
+    return Object.keys(this.sounds).length >= 1
   }
 
   get funcstions_folder() {
@@ -121,11 +133,11 @@ export class BioBlock {
     ]
     this.funcstions_folder.child('init.mcfunction').write_text(initfunc.join('\n'), true)
   }
-  
+
   wirte_tick_function() {
     const tickfunc = [
-      `execute if entity ${ARMORSTAND_SELECTOR({tags:{[TAG_GC]:true}})} run kill ${ARMORSTAND_SELECTOR({tags:{[TAG_GC]:true}})}`,
-      `tag ${ARMORSTAND_SELECTOR({tags:{[TAG_ALL]:true,[TAG_SLEEP]:false}})} add ${TAG_GC}`
+      `execute if entity ${ARMORSTAND_SELECTOR({ tags: { [TAG_GC]: true } })} run kill ${ARMORSTAND_SELECTOR({ tags: { [TAG_GC]: true } })}`,
+      `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_ALL]: true, [TAG_SLEEP]: false } })} add ${TAG_GC}`
     ]
     this.tick_function.write_text(tickfunc.join('\n'), true)
   }
@@ -149,6 +161,40 @@ export class BioBlock {
     }
     this.resourcepack.child('assets', this.item.namespace, 'models', 'item', this.item.name + '.json').write_text(JSON.stringify(item_model), true)
   }
+
+  requireSound(file: string): number {
+    const splitted = file.split(/[/\\]/)
+    const name = splitted[splitted.length - 1]
+
+    if (this.sounds[name] === undefined) {
+      this.sounds[name] = Object.keys(this.sounds).length
+    }
+    return this.sounds[name]
+  }
+
+  getSoundList(): string[] {
+    return Object.keys(this.sounds)
+  }
+
+  setSoundFiles(files: { [key: string]: File }): void {
+    const json: sound_json = {}
+    Object.keys(files).forEach(key => {
+      console.log(this.sounds, key);
+      const sound_id = this.sounds[key].toString()
+      const sound_file = SOUND_FILE(sound_id)
+      this.sounds_folder.child(sound_id + '.ogg').write_bytes(files[key], true)
+      json[sound_id] = {
+        "replace": true,
+        "sounds": [
+          {
+            "name": mcPath(this.sounds_folder.child(sound_id)),
+            "volume": 1
+          }
+        ]
+      }
+    })
+    this.sounds_json.write_json(json)
+  }
 }
 
 export class BioBlockModel {
@@ -170,7 +216,7 @@ export class BioBlockModel {
   awake_api_function: Path;
   summon_api_function: Path;
 
-  constructor(bioblock: BioBlock, model: BBmodel, api: Path,core: Path, models: Path, textures: Path, customModelDataCounter: Counter) {
+  constructor(bioblock: BioBlock, model: BBmodel, api: Path, core: Path, models: Path, textures: Path, customModelDataCounter: Counter) {
     this.bioblock = bioblock
     this.model = model
 
@@ -260,7 +306,7 @@ export class BioBlockModel {
     ]
     this.summon_api_function.write_text(api_commands.join('\n'), true)
   }
-  
+
   writeSleepCommands(): void {
     const commands = [
       `scoreboard players operation _ ${SCORE_ID} = @s ${SCORE_ID}`,
@@ -278,7 +324,7 @@ export class BioBlockModel {
     ]
     this.sleep_api_function.write_text(api_commands.join('\n'), true)
   }
-  
+
   writeAwakeCommands(): void {
     const commands = [
       `scoreboard players operation _ ${SCORE_ID} = @s ${SCORE_ID}`,
@@ -297,13 +343,13 @@ export class BioBlockModel {
     ]
     this.awake_api_function.write_text(api_commands.join('\n'), true)
   }
-  
+
   writeSelectCommands(): void {
     const commands = this.animations.flatMap(animation => [
       `execute if score @s ${SCORE_NEXT} matches ${animation.id} run scoreboard players set @s ${SCORE_FRAME} ${animation.start_frame}`,
       `execute if score @s ${SCORE_NEXT} matches ${animation.id} run schedule function ${mcPath(animation.frames_folder.child('0_'))} 1`
     ])
-    
+
     commands.push(`scoreboard players set @s ${SCORE_NEXT} 0`)
     this.select_function.write_text(commands.join('\n'), true)
   }
@@ -315,7 +361,7 @@ export class BioBlock_outliner {
   keyframes: BioBlock_keyframes;
   sub_outliner: BioBlock_outliner[];
   elements: BioBlock_element[];
-  
+
   constructor(bioblockmodel: BioBlockModel, outliner: BBmodel_outliner, part_id: Counter, custom_model_data: Counter, texture_path: Path) {
     this.bioblockmodel = bioblockmodel
     this.outliner = outliner
@@ -543,6 +589,9 @@ class BioBlock_effect_animator {
     animator.keyframes.forEach(keyframe => {
       if (isBBmodel_timeline_keyframe(keyframe)) {
         this.timeline.addScript(keyframe.time, keyframe.data_points[0])
+      } else if (isBBmodel_sound_keyframe(keyframe)) {
+        const sound_name = this.bioblockmodel.bioblock.requireSound(keyframe.data_points[0].file)
+        this.timeline.addScript(keyframe.time, { script: `playsound ${SOUND_FILE(sound_name.toString())} hostile @a ~ ~ ~` })
       }
     })
   }

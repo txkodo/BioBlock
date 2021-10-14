@@ -11,8 +11,11 @@ export const TAG_SLEEP    = 'BioBlock_SLEEP'
 
 export const NAMESPACE    = 'bioblock'
 
+
 export const TAG_ENTITY   = (entityname:string) => `BioBlock-${entityname}`
 export const TAG_ENTITYPART = (entityname:string,partid:string) => `BioBlock-${entityname}-${partid}`
+
+export const SOUND_FILE   = (filename:string) => `bioblock:${filename}`
 
 export const ANIMATION_FUNCTION = (animation_name:string) => `animation-${animation_name}.mcfunction`
 

@@ -11,6 +11,9 @@ export class Download {
     this.model_input = model_input
     this.sound_input = sound_input
 
+    sound_input.onchanged = this.changed
+    model_input.onchanged = this.changed
+
     button.onclick = ( async () => {
       await this.download()
     })
@@ -30,6 +33,10 @@ export class Download {
     const [datapack, resourcepack] = this.model_input.pack.export()
     saveAs(await datapack.exportZip(), 'Datapack')
     saveAs(await resourcepack.exportZip(), 'Resourcepack')
+  }
+  
+  changed = (ready:boolean) => {
+    this.button.disabled = !ready
   }
 }
 

@@ -5,6 +5,8 @@ $half_font : 0.5rem;
   --base_color  : #fff;
   --assort_color: #222;
   --accent_color: #d04;
+  --ok_color: #1f0;
+  --ng_color: #f09;
   }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -48,6 +50,9 @@ $half_font : 0.5rem;
   display: inline-block;
   background-color: var(--accent_color);
   color: white;
+  &:disabled{
+    background-color: var(--layer_color);
+  }
 }
 
 .inputFile {
@@ -72,10 +77,17 @@ $half_font : 0.5rem;
     @extend %tin;
     display: inline-block;
     margin: 10px;
-    content: "ここに .bbmodel ファイルをドロップしてください";
   }
 }
 
 .hide {
   display: none;
+}
+
+.li-exist {
+  color: var(--ok_color);
+}
+
+.li-lack {
+  color: var(--ng_color);
 }

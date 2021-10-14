@@ -1,0 +1,17 @@
+@import "./atom.scss";
+
+.dropArea-model{
+  @extend .dropArea;
+
+  &::before{
+    content: "ここに .bbmodel ファイルをドロップしてください";
+  }
+}
+
+.dropArea-sound{
+  @extend .dropArea;
+
+  &::before{
+    content: "ここに .mp3 / .ogg ファイルをドロップしてください";
+  }
+}

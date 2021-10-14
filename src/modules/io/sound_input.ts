@@ -3,6 +3,36 @@ import { mp3ToOgg } from "../util/sound";
 
 export class SoundInput extends DropArea {
   private sounds: { [key: string]: null | Blob } = {}
+  fileInput_needed: HTMLUListElement;
+  onchanged:((ready:boolean)=>void)|undefined;
+
+  constructor(option: {
+    dropArea: HTMLInputElement,
+    fileInput: HTMLInputElement,
+    fileInput_name: HTMLElement,
+    fileInput_log: HTMLElement,
+    fileInput_needed: HTMLUListElement,
+  }) {
+    super(option)
+    this.fileInput_needed = fileInput_needed
+  }
+
+  updateNeeded() {
+    this.fileInput_needed.innerHTML = ''
+    let ready = true
+    Object.keys(this.sounds).forEach(sound_name => {
+      const li = document.createElement('li')
+      this.fileInput_needed.appendChild(li)
+      li.textContent = sound_name
+      ready ??= this.sounds[sound_name]?true:false
+      li.classList.add(this.sounds[sound_name]?'li-exist':'li-lack')
+    });
+    if (this.onchanged){
+      console.log(ready);
+      
+      this.onchanged(ready)
+    }
+  }
 
   async setFiles(files: FileList) {
     this.clearLog()
@@ -32,7 +62,7 @@ export class SoundInput extends DropArea {
         return
       }
 
-      let file:Blob = files[i]
+      let file: Blob = files[i]
 
       if (match[1] === 'mp3') {
         file = await mp3ToOgg(file)
@@ -42,6 +72,7 @@ export class SoundInput extends DropArea {
       filenames.push(files[i].name)
     }
     fileInput_name.textContent = filenames.join(' ')
+    this.updateNeeded()
   }
 
   show() {
@@ -69,6 +100,7 @@ export class SoundInput extends DropArea {
       this.hide()
     }
     this.sounds = new_sounds
+    this.updateNeeded()
   }
 
   hasEnoughFiles(): boolean {
@@ -79,11 +111,14 @@ export class SoundInput extends DropArea {
 const fileInput = <HTMLInputElement>document.getElementById('SEinputFile_input')
 const fileInput_name = <HTMLInputElement>document.getElementById('SEinputFile_name')
 const fileInput_log = <HTMLInputElement>document.getElementById('SEinputFile_log')
+const fileInput_needed = <HTMLUListElement>document.getElementById('SEinputFile_needed')
 const dropArea = <HTMLInputElement>document.getElementById('SEdropArea')
+
 
 export const sound_input = new SoundInput({
   dropArea,
   fileInput,
   fileInput_name,
+  fileInput_needed,
   fileInput_log
 })

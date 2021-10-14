@@ -8,6 +8,7 @@ import { SoundInput, sound_input } from "./sound_input"
 export class BBmodelArea extends DropArea {
   pack: BioBlock | undefined
   sound_input: SoundInput
+  onchanged:((ready:boolean)=>void)|undefined;
 
   constructor(option: {
     dropArea: HTMLInputElement;
@@ -54,6 +55,9 @@ export class BBmodelArea extends DropArea {
     const bbmodels = filecontents.map(filecontent => JSON.parse(filecontent as string) as bbmodel_json);
     this.pack = new BioBlock(bbmodels.map(json => new BBmodel(json)), getModelItem('minecraft:bone'))
     this.sound_input.setRequiresdFiles(this.pack.getSoundList())
+    if(this.onchanged){
+      this.onchanged(this.sound_input.hasEnoughFiles())
+    }
     fileInput_name.textContent = filenames.join(' ')
     return
   }

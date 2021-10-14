@@ -68,18 +68,6 @@ $half_font : 0.5rem;
   }
 }
 
-.dropArea {
-  text-align: center;
-  &.active {
-    background-color: var(--accent_color);
-  }
-  &::before {
-    @extend %tin;
-    display: inline-block;
-    margin: 10px;
-  }
-}
-
 .hide {
   display: none;
 }

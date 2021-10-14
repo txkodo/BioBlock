@@ -1,5 +1,19 @@
 @import "./atom.scss";
 
+.dropArea {
+  text-align: center;
+  &.active {
+    background-color: var(--accent_color);
+  }
+  &::before {
+    @extend %tin;
+    display: inline-block;
+    margin: 10px;
+    padding-top: 100px;
+    padding-bottom: 100px;
+  }
+}
+
 .dropArea-model{
   @extend .dropArea;
 
@@ -12,6 +26,29 @@
   @extend .dropArea;
 
   &::before{
-    content: "ここに .mp3 / .ogg ファイルをドロップしてください";
+    content: "ここに下記の .mp3 / .ogg ファイルをドロップしてください";
+  }
+}
+
+.download {
+  text-align: center;
+}
+
+.header {
+  display: flex;
+  align-items:flex-end;
+  background-color: var(--assort_color);
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  padding-right: 5rem;
+  padding-left: 5rem;
+  color: var(--base_color);
+  h1{
+    font-size: 1.5rem;
+    font-weight: 900;
+    flex-grow:10;
+  }
+  a{
+    font-weight: 900;
   }
 }

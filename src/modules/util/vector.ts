@@ -73,8 +73,8 @@ export const transpose_matrix = (transpose: vec3) => {
 
 export const invertZ = (transpose: vec3): vec3 => [transpose[0], transpose[1], -transpose[2]]
 
-export const relativeOrigin = (transpose: vec3, rotation: vec3) => {
-  return matrix_mul(constructMatrix(transpose, rotation), transpose_matrix(vec3_neg(transpose)))
+export const relativeOrigin = (transpose: vec3, rotation: vec3, offset: vec3) => {
+  return matrix_mul(constructMatrix(transpose, rotation), transpose_matrix(vec3_neg(offset)))
 }
 
 export const constructMatrix = (transpose: vec3, rotation: vec3) => {

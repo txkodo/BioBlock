@@ -124,9 +124,9 @@ const matrix2face = (matrix: matrix): [Direction, 0 | 90 | 180 | 270] => {
 }
 
 import { JavaElement, JavaElementAngle, JavaFace, JavaFaces, JavaModel, JavaRotation } from "../model/types/java_model"
-import { Axis, Direction } from "../model/types/general_model"
+import { Axis, Direction, FaceRotation } from "../model/types/general_model"
 import { BBmodel_element, BBmodel_face, BBmodel_resolution } from "../model/types/bbmodel"
-import { Path } from "../util/folder"
+import { Directory, Path } from "../util/folder"
 import { mcPath } from "../util/datapack"
 import { BioBlockConvertError } from "./bioblock"
 type right_angled = 0 | 90 | 180 | 270
@@ -142,7 +142,7 @@ export const rotateJavaElement = (element: JavaElement, rotation: vec3<right_ang
   }[element.rotation?.axis ?? 'x']
 
 
-  const origin = relativeOrigin((rot_origin), rotation)
+  const origin = relativeOrigin(rot_origin, rotation, rot_origin)
   const from_ = matrix_vec3_mul(origin, (element.from))
   const to_ = matrix_vec3_mul(origin, (element.to))
   const from = from_.map((v, i) => Math.min(v, to_[i])) as vec3
@@ -213,8 +213,6 @@ const optimizeJavaModel = (javaModel: JavaModel): [JavaModel, vec3] => {
     faces: element.faces,
   }))
 
-  console.log(`scale:${scale}`);
-
   if (copy.display) {
     copy.display.head.scale = [2.285 * scale, 2.285 * scale, 2.285 * scale]
   } else {
@@ -225,6 +223,33 @@ const optimizeJavaModel = (javaModel: JavaModel): [JavaModel, vec3] => {
     }
   }
   return [copy, center]
+}
+
+const reverse_element = (javaElement: JavaElement): JavaElement => {
+  javaElement.from
+  javaElement.to
+  const faces: JavaFaces = {};
+  (Object.keys(javaElement.faces) as Array<Direction>).forEach((face:Direction) => {
+    const facemap:{[key in Direction]:Direction} = {
+      'north': 'south',
+      'south': 'north',
+      'up': 'down',
+      'down': 'up',
+      'east': 'west',
+      'west': 'east'
+    }
+    const new_face = facemap[face]
+    const rotation:FaceRotation = (javaElement.faces[face]?{90:270,180:0,270:90,0:180}[(javaElement.faces[face] as JavaFace).rotation]:180) as FaceRotation
+    const face_data:JavaFace = {...(javaElement.faces[face] as JavaFace),rotation:rotation}
+    faces[new_face] = face_data
+  })
+  return {
+    from: javaElement.to,
+    to: javaElement.from,
+    rescale: javaElement.rescale,
+    rotation: javaElement.rotation,
+    faces: faces
+  }
 }
 
 export const combine_elements = (elements: BBmodel_element[], resolution: BBmodel_resolution, texture_path: Path): [JavaModel, vec3, vec3][] => {
@@ -283,7 +308,14 @@ export const combine_elements = (elements: BBmodel_element[], resolution: BBmode
         rotation: java_rotation,
         faces: faces
       }
-      elements_in_standard_basis.elements.push(rotateJavaElement(javaElement, multiple90))
+      const rotatedJavaElement = rotateJavaElement(javaElement, multiple90)
+      elements_in_standard_basis.elements.push(rotatedJavaElement)
+      
+      // -revが末尾に付いたエレメントは内外が反転したものを加える
+      if (element.name.endsWith('-rev')){
+        console.log('REV');
+        elements_in_standard_basis.elements.push(reverse_element(rotatedJavaElement))
+      }
     }
     // 標準座標系に乗らない場合
     else {
@@ -314,7 +346,13 @@ export const combine_elements = (elements: BBmodel_element[], resolution: BBmode
         }
       }
       const [new_model, offset] = optimizeJavaModel(java_model)
-      const rotated_offset = matrix_vec3_mul(relativeOrigin(element.origin, element.rotation), offset)
+
+      // -revが末尾に付いたエレメントは内外が反転したものを加える
+      if (element.name.endsWith('-rev')){
+        new_model.elements.push(reverse_element(new_model.elements[0]))
+      }
+
+      const rotated_offset = matrix_vec3_mul(relativeOrigin(element.origin, element.rotation, element.origin), offset)
       // TODO: 回転座標系の整理
       const entity_rotation: vec3 = [-element.rotation[0], -element.rotation[1], element.rotation[2]]
       elements_in_other_basis.push([new_model, rotated_offset, entity_rotation])

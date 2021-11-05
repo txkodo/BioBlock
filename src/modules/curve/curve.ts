@@ -43,7 +43,6 @@ class Hermite implements segment {
     this.p2 = p2
     this.m1 = m1
     this.m2 = m2
-    console.log(`${p1.t}:${p1.y} -> ${p2.t}:${p2.y}`);
   }
 
   eval(time: number): number | undefined {

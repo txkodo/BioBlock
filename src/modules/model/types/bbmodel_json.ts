@@ -23,6 +23,7 @@ export type bbmodel_resolution_json = {
 }
 
 export type bbmodel_element_json = {
+  name:string
   uuid:string
   rescale: boolean
   from: vec3

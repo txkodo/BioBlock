@@ -35,6 +35,7 @@ export type BBmodel_meta = bbmodel_meta_json
 export type BBmodel_resolution = bbmodel_resolution_json
 
 export class BBmodel_element {
+  name: string
   uuid: string
   rescale: boolean
   from: vec3
@@ -51,6 +52,7 @@ export class BBmodel_element {
   }
   constructor(json: bbmodel_element_json, textures: BBmodel_texture[]) {
     this.uuid = json.uuid
+    this.name = json.name
     this.rescale = json.rescale
     this.from = json.from
     this.to = json.to

@@ -366,20 +366,20 @@ export class BioBlock_outliner {
   constructor(bioblockmodel: BioBlockModel, outliner: BBmodel_outliner, part_id: Counter, custom_model_data: Counter, texture_path: Path) {
     this.bioblockmodel = bioblockmodel
     this.outliner = outliner
-    if (outliner.elements){
+    if (outliner.elements) {
       this.elements = combine_elements(outliner.elements, bioblockmodel.model.resolution, texture_path).map(([JavaModel, origin, rotation]) => new BioBlock_element(bioblockmodel, JavaModel, origin, rotation, part_id.next().toString(), custom_model_data.next()))
     }
     this.sub_outliner = outliner.sub_outliner.map(child => new BioBlock_outliner(bioblockmodel, child, part_id, custom_model_data, texture_path))
     this.keyframes = new BioBlock_keyframes([], this.outliner.origin, this.outliner.rotation)
-    this.matrix = constructMatrix(invertZ(this.outliner.origin),this.outliner.rotation)
+    this.matrix = constructMatrix(invertZ(this.outliner.origin), this.outliner.rotation)
   }
 
   findOutliner(name: string): BioBlock_outliner[] {
-    let result:BioBlock_outliner[] = []
+    let result: BioBlock_outliner[] = []
     if (this.outliner.name === name) {
       result.push(this)
     }
-    this.sub_outliner.forEach(sub => {result = result.concat(sub.findOutliner(name))})
+    this.sub_outliner.forEach(sub => { result = result.concat(sub.findOutliner(name)) })
     return result
   }
 
@@ -390,30 +390,29 @@ export class BioBlock_outliner {
   }
 
   exportSummons(): string[] {
-    return [...this.elements?.map(element => element.exportSummon())??[], ...this.sub_outliner.flatMap(outliner => outliner.exportSummons())]
+    return [...this.elements?.map(element => element.exportSummon()) ?? [], ...this.sub_outliner.flatMap(outliner => outliner.exportSummons())]
   }
 
   writeModels(entitymodel_folder: Path): JavaItemOverride[] {
     return [
-      ...this.elements?.map(element => element.writeModel(entitymodel_folder))??[],
+      ...this.elements?.map(element => element.writeModel(entitymodel_folder)) ?? [],
       ...this.sub_outliner.flatMap(outliner => outliner.writeModels(entitymodel_folder))
     ]
   }
 
   getMatrix(tick: number) {
     const origin = this.keyframes.position.eval(tick / 20)
-    return constructMatrix( invertZ(origin), this.keyframes.rotation.eval(tick / 20))
+    return constructMatrix(invertZ(origin), this.keyframes.rotation.eval(tick / 20))
   }
 
   getRalativeOrigin(tick: number) {
     const origin = this.keyframes.position.eval(tick / 20)
-    return relativeOrigin([origin[0], origin[1], -origin[2]], this.keyframes.rotation.eval(tick / 20))
+    return relativeOrigin(invertZ(origin), this.keyframes.rotation.eval(tick / 20), invertZ(this.outliner.origin))
   }
 
   exportTpCommands(tick: number, matrix: matrix) {
     this.matrix = matrix_mul(matrix, this.getMatrix(tick))
     const origin_matrix = matrix_mul(matrix, this.getRalativeOrigin(tick))
-
     let result: string[] = []
     this.elements?.forEach(element => {
       result.push(...element.exportTpCommand(origin_matrix))
@@ -433,9 +432,7 @@ export class BioBlock_keyframes {
     this.rotation = new Curve3D(rotation)
     this.position = new Curve3D(origin)
 
-    console.log(keyframes.sort((a,b) => a.time - b.time));
-
-    keyframes.sort(keyframe => keyframe.time).forEach((keyframe) => {
+    keyframes.sort((a, b) => a.time - b.time).forEach((keyframe) => {
       const inlinear = keyframe.interpolation == 'linear'
       if (keyframe.channel == 'position') {
         const pre_origin = vec3_add(origin, keyframe.data_points[0])
@@ -636,18 +633,18 @@ class BioBlock_effect_animator {
       if (position) {
         const segments = position.match(/\s*@([a-zA-Z0-9_-]+)\s*/) as RegExpMatchArray
         const name = segments[1]
-        const outliners = this.bioblockmodel.outliner.flatMap( outline => outline.findOutliner(name))
+        const outliners = this.bioblockmodel.outliner.flatMap(outline => outline.findOutliner(name))
 
-        option.positions = outliners.map( outliner => {
+        option.positions = outliners.map(outliner => {
           return () => {
-            const [position,rotation] = deconstructMatrix(outliner.matrix);
+            const [position, rotation] = deconstructMatrix(outliner.matrix);
             return `execute positioned ~${float_round(position[0] / 16, 5)} ~${float_round(position[1] / 16, 5)} ~${-float_round(position[2] / 16, 5)}` +
-            ` rotated ~${-float_round(rotation[2],5)} ~${float_round(rotation[2],5)} run `
+              ` rotated ~${-float_round(rotation[2], 5)} ~${float_round(rotation[2], 5)} run `
           }
-        } )
+        })
       }
     }
-    
+
     return [script, option]
   }
 }

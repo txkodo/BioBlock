@@ -297,7 +297,7 @@ export class BioBlockModel {
       `scoreboard players operation ${ARMORSTAND_SELECTOR({ tags: { [TAG_TEMP]: true } })} ${SCORE_ID} = ${SCORE_ID_GLOBAL} ${SCORE_ID}`,
       `scoreboard players add ${SCORE_ID_GLOBAL} ${SCORE_ID} 1`,
       `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_TEMP]: true } })} remove ${TAG_TEMP}`,
-      `schedule function ${mcPath(this.snooze.frames_folder.child('0_'))} 1`
+      `schedule function ${mcPath(this.snooze.frames_folder.child('0_'))} 1t replace`
     ]
     this.summon_function.write_text(summon_commands.join('\n'), true)
     const api_commands = [
@@ -333,6 +333,7 @@ export class BioBlockModel {
       `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
       `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,
       `scoreboard players operation ${ARMORSTAND_SELECTOR({ tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
+      `schedule function ${mcPath(this.snooze.frames_folder.child('0_'))} 1t replace`
     ]
     this.awake_function.write_text(commands.join('\n'), true)
 
@@ -432,7 +433,9 @@ export class BioBlock_keyframes {
     this.rotation = new Curve3D(rotation)
     this.position = new Curve3D(origin)
 
-    keyframes.forEach((keyframe) => {
+    console.log(keyframes.sort((a,b) => a.time - b.time));
+
+    keyframes.sort(keyframe => keyframe.time).forEach((keyframe) => {
       const inlinear = keyframe.interpolation == 'linear'
       if (keyframe.channel == 'position') {
         const pre_origin = vec3_add(origin, keyframe.data_points[0])
@@ -580,14 +583,14 @@ class BioBlock_animation {
             // 1tick後にこのアニメーションの最初に戻る
             loop: [
               `execute unless score @s ${SCORE_NEXT} matches 1..${this.bioblockmodel.animations.length} run scoreboard players set @s ${SCORE_FRAME} ${first_frame}`,
-              `execute unless score @s ${SCORE_NEXT} matches 1..${this.bioblockmodel.animations.length} run schedule function ${mcPath(this.frames_folder.child('0_.mcfunction'))}`
+              `execute unless score @s ${SCORE_NEXT} matches 1..${this.bioblockmodel.animations.length} run schedule function ${mcPath(this.frames_folder.child('0_.mcfunction'))} 1t`
             ],
           }[this.animation.loop],
           `function ${mcPath(this.bioblockmodel.select_function)}`
         ]
         : [
           `scoreboard players set @s ${SCORE_FRAME} ${total_tick + 1}`,
-          `schedule function ${mcPath(this.frames_folder.child((tick + 1).toString() + '_.mcfunction'))} 1t`
+          `schedule function ${mcPath(this.frames_folder.child((tick + 1).toString() + '_.mcfunction'))} 1t replace`
         ])
     ]
     this.frames_folder.child(tick.toString() + '.mcfunction').write_text(commands.join('\n'), true)

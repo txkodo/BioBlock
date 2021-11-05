@@ -86,7 +86,7 @@ const matrix2face = (matrix: matrix): [Direction, 0 | 90 | 180 | 270] => {
 
   let axis: 'x' | 'y' | 'z'
   let direction: Direction
-  switch (matrix_vec3_mul(matrix,[1,0,0]).toString()) {
+  switch (matrix_vec3_mul(matrix, [1, 0, 0]).toString()) {
     case [1, 0, 0].toString():
       axis = 'x'
       direction = 'east'
@@ -200,22 +200,34 @@ const optimizeJavaModel = (javaModel: JavaModel): [JavaModel, vec3] => {
     updateBbox(element.from)
     updateBbox(element.to)
   })
-  
+
   const maxsize = Math.max(...bbox.map(([s, e]) => e - s))
   const center = bbox.map(([s, e]) => (s + e) / 2) as vec3
   const scale = 2 ** Math.max(Math.ceil(Math.log2(maxsize / 48)), 0)
-  
+
   const copy: JavaModel = { ...javaModel }
-  
+
   copy.elements = javaModel.elements.map((element: JavaElement): JavaElement => ({
     from: vec3_add(vec3_mul(vec3_sub(element.from, center), 1 / scale), [8, 8, 8]),
     to: vec3_add(vec3_mul(vec3_sub(element.to, center), 1 / scale), [8, 8, 8]),
     faces: element.faces,
   }))
+
+  console.log(`scale:${scale}`);
+
+  if (copy.display) {
+    copy.display.head.scale = [2.285 * scale, 2.285 * scale, 2.285 * scale]
+  } else {
+    copy.display = {
+      head: {
+        scale: [2.285 * scale, 2.285 * scale, 2.285 * scale]
+      }
+    }
+  }
   return [copy, center]
 }
 
-export const combine_elements = (elements: BBmodel_element[],resolution:BBmodel_resolution,texture_path:Path): [JavaModel, vec3, vec3][] => {
+export const combine_elements = (elements: BBmodel_element[], resolution: BBmodel_resolution, texture_path: Path): [JavaModel, vec3, vec3][] => {
 
   let has_standard_basis = false
   const elements_in_standard_basis: JavaModel = {
@@ -260,7 +272,7 @@ export const combine_elements = (elements: BBmodel_element[],resolution:BBmodel_
         elements_in_standard_basis.textures[face.texture.id] = mcPath(texture_path.child(`${face.texture.id}.png`))
         faces[direction] = {
           texture: '#' + face.texture.id,
-          uv: face.uv.map((x,i) => x * 16 / resolution[i%2===0?'width':'height'] ) as [number,number,number,number],
+          uv: face.uv.map((x, i) => x * 16 / resolution[i % 2 === 0 ? 'width' : 'height']) as [number, number, number, number],
           rotation: face.rotation
         }
       })
@@ -276,13 +288,13 @@ export const combine_elements = (elements: BBmodel_element[],resolution:BBmodel_
     // 標準座標系に乗らない場合
     else {
       const faces: JavaFaces = {};
-      const textures: {[key: string]: string} = {};
+      const textures: { [key: string]: string } = {};
       (Object.keys(element.faces) as Direction[]).forEach(direction => {
         const face = element.faces[direction] as BBmodel_face
         textures[face.texture.id] = mcPath(texture_path.child(`${face.texture.id}.png`))
         faces[direction] = {
           texture: '#' + face.texture.id,
-          uv: face.uv,
+          uv: face.uv.map((x, i) => x * 16 / resolution[i % 2 === 0 ? 'width' : 'height']) as [number, number, number, number],
           rotation: face.rotation
         }
       })
@@ -302,11 +314,14 @@ export const combine_elements = (elements: BBmodel_element[],resolution:BBmodel_
         }
       }
       const [new_model, offset] = optimizeJavaModel(java_model)
-      elements_in_other_basis.push([new_model, offset, element.rotation])
+      const rotated_offset = matrix_vec3_mul(relativeOrigin(element.origin, element.rotation), offset)
+      // TODO: 回転座標系の整理
+      const entity_rotation: vec3 = [-element.rotation[0], -element.rotation[1], element.rotation[2]]
+      elements_in_other_basis.push([new_model, rotated_offset, entity_rotation])
     }
   })
-  
+
   const [new_model, offset] = optimizeJavaModel(elements_in_standard_basis)
   const bioblock_standard_basis: [JavaModel, vec3, vec3] = [new_model, offset, [0, 0, 0]]
-  return [...has_standard_basis?[bioblock_standard_basis]:[], ...elements_in_other_basis]
+  return [...has_standard_basis ? [bioblock_standard_basis] : [], ...elements_in_other_basis]
 }

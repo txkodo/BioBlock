@@ -41,6 +41,16 @@
       <span id="SEinputFile_name">選択されていません</span>
     </div>
   </div>
+  <div class="area" class="flex">
+    <label class="labeledInput">
+      itemID
+      <input id="itemId" type="text" class="input" placeholder="minecraft:bone" pattern="(:?[a-z0-9_]+:)?[a-z0-9_]+" required>
+    </label>
+    <label class="labeledInput">
+      customModelData start
+      <input id="customModelData" type="number" class="input" min="0" max="2147483647" placeholder="0 ~ Int.MAX" required >
+    </label>
+  </div>
   <div>
     <div id="Download" class="download">
       <button disabled id="Download_button" class = "button">ダウンロード</button>

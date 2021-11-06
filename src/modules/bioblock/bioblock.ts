@@ -229,7 +229,7 @@ export class BioBlock {
         ]
       }
     })
-    this.sounds_json.write_json(json)
+    this.sounds_json.write_json(json,true)
   }
 }
 
@@ -587,9 +587,11 @@ class BioBlock_animation {
   }
 
   writePreFrameFunction(tick: number, total_tick: number): void {
-    this.frames_folder.child(tick.toString() + '_.mcfunction').write_text(
-      `execute as ${ARMORSTAND_SELECTOR({ tags: { [this.bioblockmodel.tag]: true, [TAG_GC]: true }, scores: { [SCORE_FRAME]: total_tick.toString() } })} at @s run function ${mcPath(this.frames_folder.child(tick.toString() + '.mcfunction'))}`,
-      true)
+    const commands = [
+      `execute unless entity @e[limit=1] run schedule function ${mcPath(this.frames_folder.child(`${tick.toString()}_.mcfunction`))} 1 replace`,
+      `execute as ${ARMORSTAND_SELECTOR({ tags: { [this.bioblockmodel.tag]: true, [TAG_GC]: true }, scores: { [SCORE_FRAME]: total_tick.toString() } })} at @s run function ${mcPath(this.frames_folder.child(tick.toString() + '.mcfunction'))}`
+    ]
+    this.frames_folder.child(tick.toString() + '_.mcfunction').write_text(commands.join('\n'),true)
   }
 
   writeFrameFunction(tick: number, total_tick: number, isLast: boolean, first_frame: number): void {

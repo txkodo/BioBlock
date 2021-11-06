@@ -41,8 +41,8 @@ export class Download {
     const pack = new BioBlock(model_input.bbmodels.map(json => new BBmodel(json)), model_item,sound_input.getSoundFiles() as {[key: string]: File})
 
     const [datapack, resourcepack] = pack.export()
-    saveAs(await datapack.exportZip(), 'Datapack')
-    saveAs(await resourcepack.exportZip(), 'Resourcepack')
+    saveAs(await datapack.exportZip(), 'BioBlock_Datapack')
+    saveAs(await resourcepack.exportZip(), 'BioBlock_Resourcepack')
   }
   
   changed = () => {

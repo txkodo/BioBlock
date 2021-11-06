@@ -283,7 +283,7 @@ export class BioBlockModel {
     const snooze_animation: BBmodel_animation = new BBmodel_animation({
       name: '__snooze__',
       loop: 'hold',
-      length: 0.05,
+      length: 0.04,
       animators: {}
     }, model.outliner)
     this.snooze = new BioBlock_animation(this, snooze_animation, animation_id.next(), this.core_folder)

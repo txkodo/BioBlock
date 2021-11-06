@@ -16,7 +16,6 @@
 
 .dropArea-model{
   @extend .dropArea;
-
   &::before{
     content: "ここに .bbmodel ファイルをドロップしてください";
   }
@@ -24,7 +23,6 @@
 
 .dropArea-sound{
   @extend .dropArea;
-
   &::before{
     content: "ここに下記の .mp3 / .ogg ファイルをドロップしてください";
   }
@@ -32,6 +30,12 @@
 
 .download {
   text-align: center;
+}
+
+.labeledInput {
+  width:max-content;
+  padding: $half_font;
+  display: inline-block;
 }
 
 .header {

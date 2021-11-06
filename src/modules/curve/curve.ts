@@ -1,5 +1,3 @@
-import { float_round } from "../util/number"
-
 type point = {
   t: number
   y: number

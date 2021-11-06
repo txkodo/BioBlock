@@ -1,4 +1,5 @@
 $half_font : 0.5rem;
+$clear : rgba(0,0,0,0);
 
 :root {
   --layer_color : rgba(0,0,0,0.1);
@@ -7,6 +8,7 @@ $half_font : 0.5rem;
   --accent_color: #d04;
   --ok_color: #1f0;
   --ng_color: #f09;
+  --ng_field_color: #f8b;
   }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -39,6 +41,26 @@ $half_font : 0.5rem;
   @extend %wrapper;
   margin: $half_font;
   background-color: var(--layer_color);
+}
+
+.input {
+  @extend %wrapper;
+  border-width: 2px;
+  border-color: $clear;
+  background-color: var(--assort_color);
+  color: var(--base_color);
+  &::before{
+    display: block;
+    color: #1f0;
+    content: "18290";
+  }
+  &:focus {
+    border-color: var(--accent_color);
+    outline: 0
+  }
+  &:invalid {
+    background-color: var(--ng_field_color);
+  }
 }
 
 .button {
@@ -78,4 +100,9 @@ $half_font : 0.5rem;
 
 .li-lack {
   color: var(--ng_color);
+}
+
+.flex {
+  display: flex;
+  flex-direction: column;
 }

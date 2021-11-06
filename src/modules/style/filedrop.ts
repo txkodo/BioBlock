@@ -52,6 +52,11 @@ export class DropArea {
     throw new Error("Method not implemented.");
   }
 
+  error(log:string) {
+    this.removeFiles()
+    this.setLog(log)
+  }
+
   removeFiles() {
     this.files = undefined
     this.nemeElem.textContent = ''

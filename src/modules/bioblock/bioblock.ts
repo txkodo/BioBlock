@@ -11,6 +11,29 @@ import { float_round } from "../util/number";
 import { constructMatrix, deconstructMatrix, invertZ, matrix, matrix_mul, relativeOrigin, UNIT_MATRIX, vec3, vec3_add } from "../util/vector";
 import { combine_elements } from "./bbelem_to_java";
 import { sound_json } from "../model/types/resourcepack";
+import { bbmodel_json } from "../model/types/bbmodel_json";
+
+const extractFileName = (path: string): string => {
+  const file = path.split(/[\/\\]/)
+  return file[file.length - 1]
+}
+
+export const extractSoundFileNames = (models: bbmodel_json[]): Set<string> => {
+  const files: Set<string> = new Set<string>()
+  models.forEach(model => {
+    model.animations.forEach(anim => {
+      if (anim.animators.effects) {
+        
+        anim.animators.effects.keyframes.forEach(keyframe => {
+          if (keyframe.channel === "sound") {
+            files.add(extractFileName(keyframe.data_points[0].file))
+          }
+        })
+      }
+    })
+  })
+  return files
+}
 
 export class BioBlockConvertError extends Error {
   constructor(message?: string | undefined) {
@@ -40,7 +63,13 @@ export type modelItem = {
 
 export class BioBlock {
   sounds_folder: Path;
-  sounds: { [key: string]: number }
+  sounds: {
+    [key: string]:
+    {
+      id: number
+      file: File
+    }
+  }
   models: BioBlockModel[];
   datapack: Path
   resourcepack: Path
@@ -50,18 +79,27 @@ export class BioBlock {
   api_folder: Path;
   core_folder: Path;
   sounds_json: Path;
-  constructor(models: BBmodel[], modelItem: modelItem) {
-    this.sounds = {}
+  constructor(models: BBmodel[], modelItem: modelItem, sounds: { [key: string]: File }) {
     this.item = modelItem
     this.datapack = new Path()
     this.core_folder = this.datapack.child('data', NAMESPACE, 'functions', 'core')
     this.api_folder = this.datapack.child('data', NAMESPACE, 'functions', 'api')
-
+    
     this.resourcepack = new Path()
-
+    
     this.sounds_folder = this.resourcepack.child('assets', NAMESPACE, 'sounds')
     this.sounds_json = this.resourcepack.child('assets', NAMESPACE, 'sounds.json')
-
+    
+    this.sounds = {}
+    const sound_id = new Counter()
+    Object.keys(sounds).forEach( sound => {
+      this.sounds[sound] = {
+        id:sound_id.next(),
+        file:sounds[sound]
+      }
+    })
+    this.writeSoundFiles()
+    
     const customModelData = new Counter(modelItem.start)
     this.models = models.map(model => new BioBlockModel(this, model, this.api_folder, this.core_folder, this.models_folder, this.textures_folder, customModelData))
     this.tick_function = this.funcstions_folder.child('core', 'tick.mcfunction')
@@ -155,33 +193,32 @@ export class BioBlock {
     const item_model = {
       parent: "item/generated",
       textures: {
-        layer0: "items/bone"
+        layer0: `${this.item.namespace}:items/${this.item.name}`
       },
       overrides: model_overrides
     }
     this.resourcepack.child('assets', this.item.namespace, 'models', 'item', this.item.name + '.json').write_text(JSON.stringify(item_model), true)
   }
 
-  requireSound(file: string): number {
-    const splitted = file.split(/[/\\]/)
-    const name = splitted[splitted.length - 1]
+  // requireSound(file: string): number {
+  //   const splitted = file.split(/[/\\]/)
+  //   const name = splitted[splitted.length - 1]
 
-    if (this.sounds[name] === undefined) {
-      this.sounds[name] = Object.keys(this.sounds).length
-    }
-    return this.sounds[name]
-  }
+  //   if (this.sounds[name] === undefined) {
+  //     this.sounds[name] = Object.keys(this.sounds).length
+  //   }
+  //   return this.sounds[name]
+  // }
 
-  getSoundList(): string[] {
-    return Object.keys(this.sounds)
-  }
+  // getSoundList(): string[] {
+  //   return Object.keys(this.sounds)
+  // }
 
-  setSoundFiles(files: { [key: string]: File }): void {
+  writeSoundFiles(): void {
     const json: sound_json = {}
-    Object.keys(files).forEach(key => {
-      const sound_id = this.sounds[key].toString()
-      const sound_file = SOUND_FILE(sound_id)
-      this.sounds_folder.child(sound_id + '.ogg').write_bytes(files[key], true)
+    Object.keys(this.sounds).forEach(key => {
+      const sound_id = this.sounds[key].id.toString()
+      this.sounds_folder.child(sound_id + '.ogg').write_bytes(this.sounds[key].file, true)
       json[sound_id] = {
         "replace": true,
         "sounds": [
@@ -611,8 +648,8 @@ class BioBlock_effect_animator {
           this.timeline.addScript(keyframe.time, cmd, options)
         });
       } else if (isBBmodel_sound_keyframe(keyframe)) {
-        const sound_name = this.bioblockmodel.bioblock.requireSound(keyframe.data_points[0].file)
-        this.timeline.addScript(keyframe.time, `playsound ${SOUND_FILE(sound_name.toString())} hostile @a ~ ~ ~`, {})
+        const sound_id = this.bioblockmodel.bioblock.sounds[extractFileName(keyframe.data_points[0].file)].id
+        this.timeline.addScript(keyframe.time, `playsound ${SOUND_FILE(sound_id.toString())} hostile @a ~ ~ ~`, {})
       }
     })
   }

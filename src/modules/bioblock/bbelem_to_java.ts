@@ -238,9 +238,15 @@ const reverse_element = (javaElement: JavaElement): JavaElement => {
       'east': 'west',
       'west': 'east'
     }
+    const facedata = javaElement.faces[face] as JavaFace 
     const new_face = facemap[face]
-    const rotation:FaceRotation = (javaElement.faces[face]?{90:270,180:0,270:90,0:180}[(javaElement.faces[face] as JavaFace).rotation]:180) as FaceRotation
-    const face_data:JavaFace = {...(javaElement.faces[face] as JavaFace),rotation:rotation}
+    const uv:[number,number,number,number] = [...facedata.uv];
+    if (['up','down'].includes(face)){
+      [uv[0],uv[2]] = [uv[2],uv[0]]
+    }else{
+      [uv[1],uv[3]] = [uv[3],uv[1]]
+    }
+    const face_data:JavaFace = {...facedata,uv:uv}
     faces[new_face] = face_data
   })
   return {

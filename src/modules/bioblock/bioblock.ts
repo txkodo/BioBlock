@@ -473,6 +473,15 @@ export class BioBlock_outliner {
     return result
   }
 
+  resetRotationCache() {
+    this.elements?.forEach(element => {
+      element.resetRotationCache()
+    })
+    this.sub_outliner.forEach(outline => {
+      outline.resetRotationCache()
+    })
+  }
+
   setAnimation(animation: BBmodel_animation) {
     this.sub_outliner.map(outliner => outliner.setAnimation(animation))
     const keyframes = (animation.animators.find(animator => animator.outliner.uuid === this.outliner.uuid) ?? new BBmodel_animator({ name: '_', keyframes: [] }, this.outliner)).keyframes
@@ -548,9 +557,16 @@ export class BioBlock_element {
         0,0,-1,0,
       ],
       matrix))
+    const tolerance = 1
+    const same = this.last_rotation?.map((rot,i) => (rot - rotation[i])**2 < tolerance )?.reduce((x,y) => x&&y, true)??false
+
+    console.log(`${this.rotation} | ${this.last_rotation}`)
+    console.log(`${this.last_rotation?.map((rot,i)=>rot - rotation[i])}`)
+    
+    this.last_rotation = rotation
     const result = [
-      include_tp ? `tp ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} ^${float_round(position[0] / 16, 5)} ^${float_round(position[1] / 16, 5) - 0.45} ^${float_round(-position[2] / 16, 5)} ~ ~`:'',
-      `data modify entity ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} Pose.Head set value [${float_round(-rotation[0], 5)}f,${float_round(rotation[1], 5)}f,${float_round(-rotation[2], 5)}f]`
+      ...include_tp ? [`tp ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} ^${float_round(position[0] / 16, 5)} ^${float_round(position[1] / 16, 5) - 0.45} ^${float_round(-position[2] / 16, 5)} ~ ~`]:[],
+      ...same?[]:[`data modify entity ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} Pose.Head set value [${float_round(-rotation[0], 5)}f,${float_round(rotation[1], 5)}f,${float_round(-rotation[2], 5)}f]`]
     ]
     return result
   }
@@ -562,6 +578,7 @@ export class BioBlock_element {
   custom_model_data: number;
   tag: string;
   part_id: string;
+  last_rotation:vec3|undefined = undefined
   constructor(bioblockmodel: BioBlockModel, model: JavaModel, origin: vec3, rotation: vec3, part_id: string, custom_model_data: number) {
     this.bioblockmodel = bioblockmodel
     this.part_id = part_id
@@ -574,6 +591,10 @@ export class BioBlock_element {
 
   exportSummon(): string {
     return `summon armor_stand ~ ~ ~ {Tags:[${TAG_TEMP},${this.tag},${TAG_ALL}],Small:1b,Marker:1b,Invisible:1b,NoBasePlate:1b,ArmorItems:[{},{},{},{id:"${this.bioblockmodel.bioblock.model_item}",Count:1b,tag:{CustomModelData:${this.custom_model_data}}}]}`
+  }
+
+  resetRotationCache() {
+    this.last_rotation = undefined
   }
 
   writeModel(entitymodel_folder: Path): JavaItemOverride {
@@ -606,6 +627,7 @@ class BioBlock_animation {
   }
 
   writeAllFrameFunctions(tickCounter: Counter, export_api: boolean = true): void {
+    this.bioblockmodel.outliner.forEach(outliner => outliner.resetRotationCache())
     this.bioblockmodel.setAnimation(this.animation)
 
     const last_tick = Math.max(Math.round((this.animation.length - 0.025) * 20), 0)

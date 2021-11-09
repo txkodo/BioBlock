@@ -229,8 +229,8 @@ const reverse_element = (javaElement: JavaElement): JavaElement => {
   javaElement.from
   javaElement.to
   const faces: JavaFaces = {};
-  (Object.keys(javaElement.faces) as Array<Direction>).forEach((face:Direction) => {
-    const facemap:{[key in Direction]:Direction} = {
+  (Object.keys(javaElement.faces) as Array<Direction>).forEach((face: Direction) => {
+    const facemap: { [key in Direction]: Direction } = {
       'north': 'south',
       'south': 'north',
       'up': 'down',
@@ -238,15 +238,15 @@ const reverse_element = (javaElement: JavaElement): JavaElement => {
       'east': 'west',
       'west': 'east'
     }
-    const facedata = javaElement.faces[face] as JavaFace 
+    const facedata = javaElement.faces[face] as JavaFace
     const new_face = facemap[face]
-    const uv:[number,number,number,number] = [...facedata.uv];
-    if (['up','down'].includes(face)){
-      [uv[0],uv[2]] = [uv[2],uv[0]]
-    }else{
-      [uv[1],uv[3]] = [uv[3],uv[1]]
+    const uv: [number, number, number, number] = [...facedata.uv];
+    if (['up', 'down'].includes(face)) {
+      [uv[0], uv[2]] = [uv[2], uv[0]]
+    } else {
+      [uv[1], uv[3]] = [uv[3], uv[1]]
     }
-    const face_data:JavaFace = {...facedata,uv:uv}
+    const face_data: JavaFace = { ...facedata, uv: uv }
     faces[new_face] = face_data
   })
   return {
@@ -299,12 +299,14 @@ export const combine_elements = (elements: BBmodel_element[], resolution: BBmode
     if (standard_basis) {
       const faces: JavaFaces = {};
       (Object.keys(element.faces) as Direction[]).forEach(direction => {
-        const face = element.faces[direction] as BBmodel_face
-        elements_in_standard_basis.textures[face.texture.id] = mcPath(texture_path.child(`${face.texture.id}.png`))
-        faces[direction] = {
-          texture: '#' + face.texture.id,
-          uv: face.uv.map((x, i) => x * 16 / resolution[i % 2 === 0 ? 'width' : 'height']) as [number, number, number, number],
-          rotation: face.rotation
+        const face = element.faces[direction]
+        if (face && face.texture) {
+          elements_in_standard_basis.textures[face.texture.id] = mcPath(texture_path.child(`${face.texture.id}.png`))
+          faces[direction] = {
+            texture: '#' + face.texture.id,
+            uv: face.uv.map((x, i) => x * 16 / resolution[i % 2 === 0 ? 'width' : 'height']) as [number, number, number, number],
+            rotation: face.rotation
+          }
         }
       })
       const javaElement: JavaElement = {
@@ -316,9 +318,9 @@ export const combine_elements = (elements: BBmodel_element[], resolution: BBmode
       }
       const rotatedJavaElement = rotateJavaElement(javaElement, multiple90)
       elements_in_standard_basis.elements.push(rotatedJavaElement)
-      
+
       // -revが末尾に付いたエレメントは内外が反転したものを加える
-      if (element.name.endsWith('-rev')){
+      if (element.name.endsWith('-rev')) {
         console.log('REV');
         elements_in_standard_basis.elements.push(reverse_element(rotatedJavaElement))
       }
@@ -328,12 +330,14 @@ export const combine_elements = (elements: BBmodel_element[], resolution: BBmode
       const faces: JavaFaces = {};
       const textures: { [key: string]: string } = {};
       (Object.keys(element.faces) as Direction[]).forEach(direction => {
-        const face = element.faces[direction] as BBmodel_face
-        textures[face.texture.id] = mcPath(texture_path.child(`${face.texture.id}.png`))
-        faces[direction] = {
-          texture: '#' + face.texture.id,
-          uv: face.uv.map((x, i) => x * 16 / resolution[i % 2 === 0 ? 'width' : 'height']) as [number, number, number, number],
-          rotation: face.rotation
+        const face = element.faces[direction]
+        if (face && face.texture) {
+          textures[face.texture.id] = mcPath(texture_path.child(`${face.texture.id}.png`))
+          faces[direction] = {
+            texture: '#' + face.texture.id,
+            uv: face.uv.map((x, i) => x * 16 / resolution[i % 2 === 0 ? 'width' : 'height']) as [number, number, number, number],
+            rotation: face.rotation
+          }
         }
       })
       const java_model: JavaModel = {
@@ -354,7 +358,7 @@ export const combine_elements = (elements: BBmodel_element[], resolution: BBmode
       const [new_model, offset] = optimizeJavaModel(java_model)
 
       // -revが末尾に付いたエレメントは内外が反転したものを加える
-      if (element.name.endsWith('-rev')){
+      if (element.name.endsWith('-rev')) {
         new_model.elements.push(reverse_element(new_model.elements[0]))
       }
 

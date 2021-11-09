@@ -253,6 +253,7 @@ export class BioBlockModel {
   summon_api_function: Path;
   kill_function: Path;
   kill_api_function: Path;
+  snooze_api_function: Path;
 
   constructor(bioblock: BioBlock, model: BBmodel, api: Path, core: Path, models: Path, textures: Path, customModelDataCounter: Counter) {
     this.bioblock = bioblock
@@ -280,6 +281,7 @@ export class BioBlockModel {
     this.kill_function = this.core_folder.child('__kill__.mcfunction')
     this.kill_api_function = this.api_folder.child('kill.mcfunction')
 
+    this.snooze_api_function = this.api_folder.child('snooze.mcfunction')
 
     this.writeTextures()
 
@@ -317,10 +319,12 @@ export class BioBlockModel {
     this.writeAwakeCommands()
     // sleep
     this.writeSleepCommands()
-
+    
     const tickCounter = new Counter()
     // snooze
-    this.snooze.writeAllFrameFunctions(tickCounter, false)
+    this.snooze.writeAllFrameFunctions(tickCounter,false)
+    this.writeSnoozeCommands()
+
     // // animate
     this.animations.map(animation => animation.writeAllFrameFunctions(tickCounter))
 
@@ -378,6 +382,17 @@ export class BioBlockModel {
       `execute if entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true },as_executer: true })} run function ${mcPath(this.kill_function)}`
     ]
     this.kill_api_function.write_text(api_commands.join('\n'), true)
+  }
+
+  writeSnoozeCommands(): void {
+    const commands = [
+      `execute unless entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${mcPath(this.snooze_api_function)} must be called as ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, as_executer: true })}"}`,
+      `execute if entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run function ${mcPath(this.snooze.animation_folder.child('.mcfunction'))}`
+    ]
+    this.snooze_api_function.write_text(
+      commands.join('\n'),
+      true
+    )
   }
 
   writeSleepCommands(): void {

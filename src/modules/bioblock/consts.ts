@@ -28,16 +28,25 @@ type selector_arguments = {
 }
 
 export const ENTITY_SELECTOR = (arg:selector_arguments):string => {
-  
-  const str_type = arg.type?`type=${arg.type}`:''
+  const selector:string[] = []
+
+  if(arg.single){
+    selector.push('limit=1')
+  }
+
+  if (arg.type){
+    selector.push(`type=${arg.type}`)
+  }
   
   const tags = arg.tags
-  const str_tag = tags?Object.keys(tags).map(tag => `,tag=${tags[tag]?'':'!'}${tag}`).join(''):''
-
+  if (tags){
+    selector.push(Object.keys(tags).map(tag => `tag=${tags[tag]?'':'!'}${tag}`).join(','))
+  }
 
   const scores = arg.scores
-  let str_score = scores?Object.keys(scores).map(key => `${key}=${scores[key]}`).join(','):''
-  str_score = str_score?`,scores={${str_score}}`:''
+  if (scores){
+    selector.push('scores={' + Object.keys(scores).map(key => `${key}=${scores[key]}`).join(',') + '}')
+  }
 
-  return `${arg.as_executer?'@s':'@e'}[${arg.single?'limit=1,':''}${str_type}${str_tag}${str_score}]`
+  return `${arg.as_executer?'@s':'@e'}[${selector.join(',')}]`
 }

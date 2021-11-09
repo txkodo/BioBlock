@@ -447,15 +447,15 @@ export class BioBlock_outliner {
     return relativeOrigin(invertZ(origin), this.keyframes.rotation.eval(tick / 20), invertZ(this.outliner.origin))
   }
 
-  exportTpCommands(tick: number, matrix: matrix) {
+  exportTpCommands(tick: number, matrix: matrix, include_tp:boolean) {
     this.matrix = matrix_mul(matrix, this.getMatrix(tick))
     const origin_matrix = matrix_mul(matrix, this.getRalativeOrigin(tick))
     let result: string[] = []
     this.elements?.forEach(element => {
-      result.push(...element.exportTpCommand(origin_matrix))
+      result.push(...element.exportTpCommand(origin_matrix,include_tp))
     })
     this.sub_outliner.forEach(outline => {
-      result.push(...outline.exportTpCommands(tick, origin_matrix))
+      result.push(...outline.exportTpCommands(tick, origin_matrix,include_tp))
     })
     return result
   }
@@ -486,11 +486,11 @@ export class BioBlock_keyframes {
 
 export class BioBlock_element {
 
-  exportTpCommand(origin_matrix: matrix): string[] {
+  exportTpCommand(origin_matrix: matrix,include_tp:boolean): string[] {
     const matrix = matrix_mul(origin_matrix, constructMatrix([this.origin[0], this.origin[1], -this.origin[2]], this.rotation))
     const [position, rotation] = deconstructMatrix(matrix)
     const result = [
-      `tp ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} ~${float_round(position[0] / 16, 5)} ~${float_round(position[1] / 16, 5) - 0.725} ~${float_round(-position[2] / 16, 5)} ~ ~`,
+      include_tp ? `tp ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} ~${float_round(position[0] / 16, 5)} ~${float_round(position[1] / 16, 5) - 0.725} ~${float_round(-position[2] / 16, 5)} ~ ~`:'',
       `data modify entity ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} Pose.Head set value [${float_round(-rotation[0], 5)}f,${float_round(rotation[1], 5)}f,${float_round(-rotation[2], 5)}f]`
     ]
     return result
@@ -595,13 +595,16 @@ class BioBlock_animation {
   }
 
   writeFrameFunction(tick: number, total_tick: number, isLast: boolean, first_frame: number): void {
+    // tpは3チックに一回でも滑らかに見えるのでtp出力するかの別
+    const export_tp = tick % 3 == 0 || isLast
+
     const commands: string[] = [
       `scoreboard players operation _ ${SCORE_ID} = @s ${SCORE_ID}`,
       `scoreboard players operation ${ARMORSTAND_SELECTOR({ tags: { [TAG_ALL]: true } })} ${SCORE_ID} -= _ ${SCORE_ID}`,
       `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} add ${TAG_ACTIVE}`,
       `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
       '',
-      ...this.bioblockmodel.outliner.flatMap(outliner => outliner.exportTpCommands(tick, UNIT_MATRIX)),
+      ...this.bioblockmodel.outliner.flatMap(outliner => outliner.exportTpCommands(tick, UNIT_MATRIX,export_tp)),
       ...this.effect_animator.exportCommands(tick),
       '',
       `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,

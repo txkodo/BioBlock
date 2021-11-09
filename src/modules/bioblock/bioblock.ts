@@ -1,4 +1,3 @@
-import { ANIMATION_FUNCTION, ARMORSTAND_SELECTOR, NAMESPACE, SCORE_FRAME, SCORE_ID, SCORE_ID_GLOBAL, SCORE_NEXT, SOUND_FILE, TAG_ACTIVE, TAG_ALL, TAG_ENTITY, TAG_ENTITYPART, TAG_GC, TAG_SLEEP, TAG_TEMP } from "./consts";
 import { Curve3D } from "../curve/curve3d";
 import { ScriptOptions, Timeline } from "../curve/effects";
 import { BBmodel, BBmodel_animation, BBmodel_animator, BBmodel_effect_animator, BBmodel_keyframe, BBmodel_outliner, isBBmodel_sound_keyframe, isBBmodel_timeline_keyframe } from "../model/types/bbmodel";
@@ -12,6 +11,7 @@ import { constructMatrix, deconstructMatrix, invertZ, matrix, matrix_mul, relati
 import { combine_elements } from "./bbelem_to_java";
 import { sound_json } from "../model/types/resourcepack";
 import { bbmodel_json } from "../model/types/bbmodel_json";
+import { ANIMATION_FUNCTION, ENTITY_SELECTOR, NAMESPACE, SCORE_FRAME, SCORE_ID, SCORE_ID_GLOBAL, SCORE_NEXT, SOUND_FILE, TAG_ACTIVE, TAG_ALL, TAG_ENTITY, TAG_ENTITYPART, TAG_GC, TAG_SLEEP, TAG_TEMP } from './consts';
 
 const extractFileName = (path: string): string => {
   const file = path.split(/[\/\\]/)
@@ -174,8 +174,8 @@ export class BioBlock {
 
   wirte_tick_function() {
     const tickfunc = [
-      `execute if entity ${ARMORSTAND_SELECTOR({ tags: { [TAG_GC]: true } })} run kill ${ARMORSTAND_SELECTOR({ tags: { [TAG_GC]: true } })}`,
-      `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_ALL]: true, [TAG_SLEEP]: false } })} add ${TAG_GC}`
+      `execute if entity ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_GC]: true } })} run kill ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_GC]: true } })}`,
+      `tag ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ALL]: true, [TAG_SLEEP]: false } })} add ${TAG_GC}`
     ]
     this.tick_function.write_text(tickfunc.join('\n'), true)
   }
@@ -329,11 +329,11 @@ export class BioBlockModel {
   writeSummonCommands(): void {
     const summon_commands = [
       `summon armor_stand ~ ~ ~ {Tags:[${TAG_TEMP},${this.tag},${TAG_ALL}],Marker:1b,Invisible:1b,NoBasePlate:1b}`,
-      `scoreboard players set ${ARMORSTAND_SELECTOR({ tags: { [TAG_TEMP]: true }, single: true })} ${SCORE_FRAME} 0`,
+      `scoreboard players set ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_TEMP]: true }, single: true })} ${SCORE_FRAME} 0`,
       ...this.outliner.flatMap(outliner => outliner.exportSummons()),
-      `scoreboard players operation ${ARMORSTAND_SELECTOR({ tags: { [TAG_TEMP]: true } })} ${SCORE_ID} = ${SCORE_ID_GLOBAL} ${SCORE_ID}`,
+      `scoreboard players operation ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_TEMP]: true } })} ${SCORE_ID} = ${SCORE_ID_GLOBAL} ${SCORE_ID}`,
       `scoreboard players add ${SCORE_ID_GLOBAL} ${SCORE_ID} 1`,
-      `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_TEMP]: true } })} remove ${TAG_TEMP}`,
+      `tag ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_TEMP]: true } })} remove ${TAG_TEMP}`,
       `schedule function ${mcPath(this.snooze.frames_folder.child('0_'))} 1t replace`
     ]
     this.summon_function.write_text(summon_commands.join('\n'), true)
@@ -346,17 +346,17 @@ export class BioBlockModel {
   writeSleepCommands(): void {
     const commands = [
       `scoreboard players operation _ ${SCORE_ID} = @s ${SCORE_ID}`,
-      `scoreboard players operation @e[type=armor_stand,tag=${TAG_ALL}] ${SCORE_ID} -= _ ${SCORE_ID}`,
-      `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} add ${TAG_ACTIVE}`,
-      `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true } })} add ${TAG_SLEEP}`,
-      `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
-      `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,
-      `scoreboard players operation ${ARMORSTAND_SELECTOR({ tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
+      `scoreboard players operation ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ALL]: true }})} ${SCORE_ID} -= _ ${SCORE_ID}`,
+      `tag ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} add ${TAG_ACTIVE}`,
+      `tag ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ACTIVE]: true } })} add ${TAG_SLEEP}`,
+      `tag ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
+      `tag ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,
+      `scoreboard players operation ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
     ]
     this.sleep_function.write_text(commands.join('\n'), true)
     const api_commands = [
-      `execute unless entity ${ARMORSTAND_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${mcPath(this.sleep_api_function)} must be called as ${ARMORSTAND_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, as_executer: true })}"}`,
-      `execute if entity ${ARMORSTAND_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run function ${mcPath(this.sleep_function)}`
+      `execute unless entity ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [this.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${mcPath(this.sleep_api_function)} must be called as ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [this.tag]: true, [TAG_SLEEP]: false }, as_executer: true })}"}`,
+      `execute if entity ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [this.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run function ${mcPath(this.sleep_function)}`
     ]
     this.sleep_api_function.write_text(api_commands.join('\n'), true)
   }
@@ -365,18 +365,18 @@ export class BioBlockModel {
     const commands = [
       `scoreboard players operation _ ${SCORE_ID} = @s ${SCORE_ID}`,
       `scoreboard players operation @e[type=armor_stand,tag=${TAG_ALL}] ${SCORE_ID} -= _ ${SCORE_ID}`,
-      `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} add ${TAG_ACTIVE}`,
-      `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true } })} remove ${TAG_SLEEP}`,
-      `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
-      `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,
-      `scoreboard players operation ${ARMORSTAND_SELECTOR({ tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
+      `tag ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} add ${TAG_ACTIVE}`,
+      `tag ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_SLEEP}`,
+      `tag ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
+      `tag ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,
+      `scoreboard players operation ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
       `schedule function ${mcPath(this.snooze.frames_folder.child('0_'))} 1t replace`
     ]
     this.awake_function.write_text(commands.join('\n'), true)
 
     const api_commands = [
-      `execute unless entity ${ARMORSTAND_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: true }, scores: {}, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${mcPath(this.awake_api_function)} must be called as ${ARMORSTAND_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: true }, as_executer: true })}"}`,
-      `execute if entity ${ARMORSTAND_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: true }, scores: {}, as_executer: true })} run function ${mcPath(this.awake_function)}`
+      `execute unless entity ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [this.tag]: true, [TAG_SLEEP]: true }, scores: {}, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${mcPath(this.awake_api_function)} must be called as ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [this.tag]: true, [TAG_SLEEP]: true }, as_executer: true })}"}`,
+      `execute if entity ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [this.tag]: true, [TAG_SLEEP]: true }, scores: {}, as_executer: true })} run function ${mcPath(this.awake_function)}`
     ]
     this.awake_api_function.write_text(api_commands.join('\n'), true)
   }
@@ -490,8 +490,8 @@ export class BioBlock_element {
     const matrix = matrix_mul(origin_matrix, constructMatrix([this.origin[0], this.origin[1], -this.origin[2]], this.rotation))
     const [position, rotation] = deconstructMatrix(matrix)
     const result = [
-      include_tp ? `tp ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} ~${float_round(position[0] / 16, 5)} ~${float_round(position[1] / 16, 5) - 0.725} ~${float_round(-position[2] / 16, 5)} ~ ~`:'',
-      `data modify entity ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} Pose.Head set value [${float_round(-rotation[0], 5)}f,${float_round(rotation[1], 5)}f,${float_round(-rotation[2], 5)}f]`
+      include_tp ? `tp ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} ~${float_round(position[0] / 16, 5)} ~${float_round(position[1] / 16, 5) - 0.725} ~${float_round(-position[2] / 16, 5)} ~ ~`:'',
+      `data modify entity ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} Pose.Head set value [${float_round(-rotation[0], 5)}f,${float_round(rotation[1], 5)}f,${float_round(-rotation[2], 5)}f]`
     ]
     return result
   }
@@ -577,8 +577,8 @@ class BioBlock_animation {
 
   writeApiFunction(): void {
     const commands = [
-      `execute unless entity ${ARMORSTAND_SELECTOR({ tags: { [this.bioblockmodel.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${mcPath(this.api_function)} must be called as ${ARMORSTAND_SELECTOR({ tags: { [this.bioblockmodel.tag]: true, [TAG_SLEEP]: false }, as_executer: true })}"}`,
-      `execute if entity ${ARMORSTAND_SELECTOR({ tags: { [this.bioblockmodel.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run scoreboard players set @s ${SCORE_NEXT} ${this.id}`
+      `execute unless entity ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [this.bioblockmodel.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${mcPath(this.api_function)} must be called as ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [this.bioblockmodel.tag]: true, [TAG_SLEEP]: false }, as_executer: true })}"}`,
+      `execute if entity ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [this.bioblockmodel.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run scoreboard players set @s ${SCORE_NEXT} ${this.id}`
     ]
     this.api_function.write_text(
       commands.join('\n'),
@@ -589,7 +589,7 @@ class BioBlock_animation {
   writePreFrameFunction(tick: number, total_tick: number): void {
     const commands = [
       `execute unless entity @e[limit=1] run schedule function ${mcPath(this.frames_folder.child(`${tick.toString()}_.mcfunction`))} 1 replace`,
-      `execute as ${ARMORSTAND_SELECTOR({ tags: { [this.bioblockmodel.tag]: true, [TAG_GC]: true }, scores: { [SCORE_FRAME]: total_tick.toString() } })} at @s run function ${mcPath(this.frames_folder.child(tick.toString() + '.mcfunction'))}`
+      `execute as ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [this.bioblockmodel.tag]: true, [TAG_GC]: true }, scores: { [SCORE_FRAME]: total_tick.toString() } })} at @s run function ${mcPath(this.frames_folder.child(tick.toString() + '.mcfunction'))}`
     ]
     this.frames_folder.child(tick.toString() + '_.mcfunction').write_text(commands.join('\n'),true)
   }
@@ -600,15 +600,15 @@ class BioBlock_animation {
 
     const commands: string[] = [
       `scoreboard players operation _ ${SCORE_ID} = @s ${SCORE_ID}`,
-      `scoreboard players operation ${ARMORSTAND_SELECTOR({ tags: { [TAG_ALL]: true } })} ${SCORE_ID} -= _ ${SCORE_ID}`,
-      `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} add ${TAG_ACTIVE}`,
-      `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
+      `scoreboard players operation ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ALL]: true } })} ${SCORE_ID} -= _ ${SCORE_ID}`,
+      `tag ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} add ${TAG_ACTIVE}`,
+      `tag ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
       '',
       ...this.bioblockmodel.outliner.flatMap(outliner => outliner.exportTpCommands(tick, UNIT_MATRIX,export_tp)),
       ...this.effect_animator.exportCommands(tick),
       '',
-      `tag ${ARMORSTAND_SELECTOR({ tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,
-      `scoreboard players operation ${ARMORSTAND_SELECTOR({ tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
+      `tag ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,
+      `scoreboard players operation ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
       ...(isLast
         ? [
           ...{

@@ -25,6 +25,7 @@ type selector_arguments = {
   scores?:{[i:string]:string}
   single?:boolean
   as_executer?:boolean
+  distance?:string
 }
 
 export const ENTITY_SELECTOR = (arg:selector_arguments):string => {
@@ -32,6 +33,10 @@ export const ENTITY_SELECTOR = (arg:selector_arguments):string => {
 
   if(arg.single){
     selector.push('limit=1')
+  }
+
+  if(arg.distance){
+    selector.push(`distance=${arg.distance}`)
   }
 
   if (arg.type){

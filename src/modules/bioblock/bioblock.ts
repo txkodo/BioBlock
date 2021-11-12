@@ -4,14 +4,14 @@ import { BBmodel, BBmodel_animation, BBmodel_animator, BBmodel_effect_animator, 
 import { JavaItemOverride, JavaModel } from "../model/types/java_model";
 import { base64mimeToBlob } from "../util/base64blob";
 import { Counter } from "../util/counter";
-import { mcPath } from "../util/datapack";
+import { Datapack, Function, FunctionFolder, mcPath } from "../util/datapack";
 import { Path } from "../util/folder";
 import { float_round } from "../util/number";
 import { constructMatrix, deconstructMatrix, invertZ, matrix, matrix_mul, relativeOrigin, UNIT_MATRIX, vec3, vec3_add } from "../util/vector";
 import { combine_elements } from "./bbelem_to_java";
 import { sound_json } from "../model/types/resourcepack";
 import { bbmodel_json } from "../model/types/bbmodel_json";
-import { ANIMATION_FUNCTION, ENTITY_SELECTOR, NAMESPACE, SCORE_FRAME, SCORE_ID, SCORE_ID_GLOBAL, SCORE_NEXT, SOUND_FILE, TAG_ACTIVE, TAG_ALL, TAG_ENTITY, TAG_ENTITYPART, TAG_GC, TAG_SLEEP, TAG_TEMP } from './consts';
+import { ENTITY_SELECTOR, NAMESPACE, SCORE_FRAME, SCORE_ID, SCORE_ID_GLOBAL, SCORE_NEXT, SOUND_FILE, TAG_ACTIVE, TAG_ALL, TAG_ENTITY, TAG_ENTITYPART, TAG_GC, TAG_SLEEP, TAG_TEMP } from './consts';
 
 const extractFileName = (path: string): string => {
   const file = path.split(/[\/\\]/)
@@ -71,19 +71,22 @@ export class BioBlock {
     }
   }
   models: BioBlockModel[];
-  datapack: Path
+  datapack: Datapack
   resourcepack: Path
   item: modelItem;
-  tick_function: Path;
+  tick_function: Function;
   tick_tag: Path;
-  api_folder: Path;
-  core_folder: Path;
+  api_folder: FunctionFolder;
+  core_folder: FunctionFolder;
   sounds_json: Path;
+  function_folder: FunctionFolder;
   constructor(models: BBmodel[], modelItem: modelItem, sounds: { [key: string]: File }) {
     this.item = modelItem
-    this.datapack = new Path()
-    this.core_folder = this.datapack.child('data', NAMESPACE, 'functions', 'core')
-    this.api_folder = this.datapack.child('data', NAMESPACE, 'functions', 'api')
+    this.datapack = new Datapack()
+    const datapackNamespace = this.datapack.namespace(NAMESPACE)
+    this.function_folder = datapackNamespace.functionFolder
+    this.core_folder = datapackNamespace.functionFolder.child('core')
+    this.api_folder = datapackNamespace.functionFolder.child('api')
 
     this.resourcepack = new Path()
 
@@ -102,16 +105,13 @@ export class BioBlock {
 
     const customModelData = new Counter(modelItem.start)
     this.models = models.map(model => new BioBlockModel(this, model, this.api_folder, this.core_folder, this.models_folder, this.textures_folder, customModelData))
-    this.tick_function = this.funcstions_folder.child('core', 'tick.mcfunction')
-    this.tick_tag = this.datapack.child('data', 'minecraft', 'tags', 'functions', 'tick.json')
+    this.tick_function = this.core_folder.function('tick')
+    // TODO: datapack tag の定義
+    this.tick_tag = this.datapack.path.child('data', 'minecraft', 'tags', 'functions', 'tick.json')
   }
 
   get needSoundFiles(): boolean {
     return Object.keys(this.sounds).length >= 1
-  }
-
-  get funcstions_folder() {
-    return this.datapack.child('data', NAMESPACE, 'functions')
   }
 
   get models_folder() {
@@ -123,7 +123,7 @@ export class BioBlock {
   }
 
 
-  export(): [Path, Path] {
+  export(): [Datapack, Path] {
     const model_overrides = this.models.flatMap(model => model.export())
 
     this.write_init_function()
@@ -148,7 +148,8 @@ export class BioBlock {
         description: 'datapack for "Command Entity" by @txkodo'
       }
     }
-    this.datapack.child('pack.mcmeta').write_json(content, true)
+    // TODO:mcmetaの対応
+    this.datapack.path.child('pack.mcmeta').write_json(content, true)
   }
 
   write_resourcepack_mcmeta() {
@@ -169,7 +170,7 @@ export class BioBlock {
       `scoreboard objectives add ${SCORE_ID} dummy`,
       `scoreboard players set ${SCORE_ID_GLOBAL} ${SCORE_ID} 0`,
     ]
-    this.funcstions_folder.child('init.mcfunction').write_text(initfunc.join('\n'), true)
+    this.function_folder.function('init').addCommands(initfunc)
   }
 
   wirte_tick_function() {
@@ -177,13 +178,13 @@ export class BioBlock {
       `execute if entity ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_GC]: true } })} run kill ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_GC]: true } })}`,
       `tag ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ALL]: true, [TAG_SLEEP]: false } })} add ${TAG_GC}`
     ]
-    this.tick_function.write_text(tickfunc.join('\n'), true)
+    this.tick_function.addCommands(tickfunc)
   }
 
   wirte_tick_tag() {
     const ticktag = {
       values: [
-        mcPath(this.tick_function)
+        this.tick_function.mcPath
       ]
     }
     this.tick_tag.write_json(ticktag, true)
@@ -237,25 +238,25 @@ export class BioBlockModel {
   model: BBmodel;
   outliner: BioBlock_outliner[];
   bioblock: BioBlock;
-  core_folder: Path;
-  api_folder: Path;
+  core_folder: FunctionFolder;
+  api_folder: FunctionFolder;
   models_folder: Path;
   textures_folder: Path;
-  select_function: Path;
-  sleep_function: Path;
-  awake_function: Path;
-  summon_function: Path;
+  select_function: Function;
+  sleep_function: Function;
+  awake_function: Function;
+  summon_function: Function;
   animations: BioBlock_animation[];
   tag: string;
   snooze: BioBlock_animation;
-  sleep_api_function: Path;
-  awake_api_function: Path;
-  summon_api_function: Path;
-  kill_function: Path;
-  kill_api_function: Path;
-  snooze_api_function: Path;
+  sleep_api_function: Function;
+  awake_api_function: Function;
+  summon_api_function: Function;
+  kill_function: Function;
+  kill_api_function: Function;
+  snooze_api_function: Function;
 
-  constructor(bioblock: BioBlock, model: BBmodel, api: Path, core: Path, models: Path, textures: Path, customModelDataCounter: Counter) {
+  constructor(bioblock: BioBlock, model: BBmodel, api: FunctionFolder, core: FunctionFolder, models: Path, textures: Path, customModelDataCounter: Counter) {
     this.bioblock = bioblock
     this.model = model
 
@@ -267,21 +268,21 @@ export class BioBlockModel {
 
     this.tag = TAG_ENTITY(model.name)
 
-    this.select_function = this.core_folder.child('__select__.mcfunction')
+    this.select_function = this.core_folder.function('__select__')
 
-    this.sleep_function = this.core_folder.child('__sleep__.mcfunction')
-    this.sleep_api_function = this.api_folder.child('sleep.mcfunction')
+    this.sleep_function = this.core_folder.function('__sleep__')
+    this.sleep_api_function = this.api_folder.function('sleep')
 
-    this.awake_function = this.core_folder.child('__awake__.mcfunction')
-    this.awake_api_function = this.api_folder.child('awake.mcfunction')
+    this.awake_function = this.core_folder.function('__awake__')
+    this.awake_api_function = this.api_folder.function('awake')
 
-    this.summon_function = this.core_folder.child('__summon__.mcfunction')
-    this.summon_api_function = this.api_folder.child('summon.mcfunction')
+    this.summon_function = this.core_folder.function('__summon__')
+    this.summon_api_function = this.api_folder.function('summon')
 
-    this.kill_function = this.core_folder.child('__kill__.mcfunction')
-    this.kill_api_function = this.api_folder.child('kill.mcfunction')
+    this.kill_function = this.core_folder.function('__kill__')
+    this.kill_api_function = this.api_folder.function('kill')
 
-    this.snooze_api_function = this.api_folder.child('snooze.mcfunction')
+    this.snooze_api_function = this.api_folder.function('snooze')
 
     this.writeTextures()
 
@@ -293,7 +294,7 @@ export class BioBlockModel {
       length: 0.04,
       animators: {}
     }, model.outliner)
-    this.snooze = new BioBlock_animation(this, snooze_animation, animation_id.next(), this.core_folder)
+    this.snooze = new BioBlock_animation(this, snooze_animation, animation_id.next(), this.core_folder,false)
     this.outliner = model.outliner.map(outliner => new BioBlock_outliner(this, outliner, part_id, customModelDataCounter, this.textures_folder))
     this.animations = model.animations.map(animation => new BioBlock_animation(this, animation, animation_id.next(), this.core_folder.child('animations')))
 
@@ -322,7 +323,7 @@ export class BioBlockModel {
 
     const tickCounter = new Counter()
     // snooze
-    this.snooze.writeAllFrameFunctions(tickCounter, false)
+    this.snooze.writeAllFrameFunctions(tickCounter)
     this.writeSnoozeCommands()
 
     // // animate
@@ -356,14 +357,14 @@ export class BioBlockModel {
       `scoreboard players operation ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_TEMP]: true } })} ${SCORE_ID} = ${SCORE_ID_GLOBAL} ${SCORE_ID}`,
       `scoreboard players add ${SCORE_ID_GLOBAL} ${SCORE_ID} 1`,
       `tag ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_TEMP]: true } })} remove ${TAG_TEMP}`,
-      `schedule function ${mcPath(this.snooze.frames_folder.child('0','_.mcfunction'))} 1t replace`
+      `schedule function ${this.snooze.preFrameFunction(0).mcPath} 1t replace`
     ]
-    this.summon_function.write_text(summon_commands.join('\n'), true)
+    this.summon_function.addCommands(summon_commands)
     const api_commands = [
-      `execute if entity ${ENTITY_SELECTOR({ tags: { [TAG_ALL]: true }, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${mcPath(this.sleep_api_function)} must NOT be called as ${ENTITY_SELECTOR({ tags: { [TAG_ALL]: true }, as_executer: true })}"}`,
-      `execute unless entity ${ENTITY_SELECTOR({ tags: { [TAG_ALL]: true }, as_executer: true })} at @s run function ${mcPath(this.summon_function)}`
+      `execute if entity ${ENTITY_SELECTOR({ tags: { [TAG_ALL]: true }, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${this.sleep_api_function.mcPath} must NOT be called as ${ENTITY_SELECTOR({ tags: { [TAG_ALL]: true }, as_executer: true })}"}`,
+      `execute unless entity ${ENTITY_SELECTOR({ tags: { [TAG_ALL]: true }, as_executer: true })} at @s run function ${this.summon_function.mcPath}`
     ]
-    this.summon_api_function.write_text(api_commands.join('\n'), true)
+    this.summon_api_function.addCommands(api_commands)
   }
 
   writeKillCommands(): void {
@@ -376,23 +377,20 @@ export class BioBlockModel {
       `scoreboard players operation ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
       `scoreboard players reset @s ${SCORE_ID}`
     ]
-    this.kill_function.write_text(commands.join('\n'), true)
+    this.kill_function.addCommands(commands)
     const api_commands = [
-      `execute unless entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true }, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${mcPath(this.sleep_api_function)} must be called as ${ENTITY_SELECTOR({ tags: { [this.tag]: true }, as_executer: true })}"}`,
-      `execute if entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true }, as_executer: true })} run function ${mcPath(this.kill_function)}`
+      `execute unless entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true }, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${this.sleep_api_function.mcPath} must be called as ${ENTITY_SELECTOR({ tags: { [this.tag]: true }, as_executer: true })}"}`,
+      `execute if entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true }, as_executer: true })} run function ${this.kill_function.mcPath}`
     ]
-    this.kill_api_function.write_text(api_commands.join('\n'), true)
+    this.kill_api_function.addCommands(api_commands)
   }
 
   writeSnoozeCommands(): void {
     const commands = [
-      `execute unless entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${mcPath(this.snooze_api_function)} must be called as ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, as_executer: true })}"}`,
-      `execute if entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run function ${mcPath(this.snooze.animation_folder.child('.mcfunction'))}`
+      `execute unless entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${this.snooze_api_function.mcPath} must be called as ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, as_executer: true })}"}`,
+      `execute if entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run function ${this.snooze.main_function.mcPath}`
     ]
-    this.snooze_api_function.write_text(
-      commands.join('\n'),
-      true
-    )
+    this.snooze_api_function.addCommands(commands)
   }
 
   writeSleepCommands(): void {
@@ -406,12 +404,12 @@ export class BioBlockModel {
       `tag ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,
       `scoreboard players operation ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
     ]
-    this.sleep_function.write_text(commands.join('\n'), true)
+    this.sleep_function.addCommands(commands)
     const api_commands = [
-      `execute unless entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${mcPath(this.sleep_api_function)} must be called as ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, as_executer: true })}"}`,
-      `execute if entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run function ${mcPath(this.sleep_function)}`
+      `execute unless entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${this.sleep_api_function.mcPath} must be called as ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, as_executer: true })}"}`,
+      `execute if entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run function ${this.sleep_function.mcPath}`
     ]
-    this.sleep_api_function.write_text(api_commands.join('\n'), true)
+    this.sleep_api_function.addCommands(api_commands)
   }
 
   writeAwakeCommands(): void {
@@ -423,25 +421,24 @@ export class BioBlockModel {
       `tag ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
       `tag ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,
       `scoreboard players operation ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ALL]: true } })} ${SCORE_ID} += @s ${SCORE_ID}`,
-      `function ${mcPath(this.snooze.frames_folder.child('0','_.mcfunction'))}`
+      `function ${this.snooze.preFrameFunction(0).mcPath}`
     ]
-    this.awake_function.write_text(commands.join('\n'), true)
+    this.awake_function.addCommands(commands)
 
     const api_commands = [
-      `execute unless entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: true }, scores: {}, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${mcPath(this.awake_api_function)} must be called as ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: true }, as_executer: true })}"}`,
-      `execute if entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: true }, scores: {}, as_executer: true })} run function ${mcPath(this.awake_function)}`
+      `execute unless entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: true }, scores: {}, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${this.awake_api_function.mcPath} must be called as ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: true }, as_executer: true })}"}`,
+      `execute if entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true, [TAG_SLEEP]: true }, scores: {}, as_executer: true })} run function ${this.awake_function.mcPath}`
     ]
-    this.awake_api_function.write_text(api_commands.join('\n'), true)
+    this.awake_api_function.addCommands(api_commands)
   }
 
   writeSelectCommands(): void {
     const commands = this.animations.flatMap(animation => [
       `execute if score @s ${SCORE_NEXT} matches ${animation.id} run scoreboard players set @s ${SCORE_FRAME} ${animation.start_frame}`,
-      `execute if score @s ${SCORE_NEXT} matches ${animation.id} run schedule function ${mcPath(animation.frames_folder.child('0','_.mcfunction'))} 1`
+      `execute if score @s ${SCORE_NEXT} matches ${animation.id} run schedule function ${animation.preFrameFunction(0).mcPath} 1`
     ])
-
     commands.push(`scoreboard players set @s ${SCORE_NEXT} 0`)
-    this.select_function.write_text(commands.join('\n'), true)
+    this.select_function.addCommands(commands)
   }
 }
 
@@ -509,17 +506,16 @@ export class BioBlock_outliner {
     return relativeOrigin(invertZ(origin), this.keyframes.rotation.eval(tick / 20), invertZ(this.outliner.origin))
   }
 
-  exportTpCommands(tick: number, matrix: matrix, include_tp: boolean, folder: Path) {
+  exportTpCommands(tick: number, matrix: matrix, include_tp: boolean, func: Function): void {
     this.matrix = matrix_mul(matrix, this.getMatrix(tick))
     const origin_matrix = matrix_mul(matrix, this.getRalativeOrigin(tick))
     let result: string[] = []
     this.elements?.forEach(element => {
-      result.push(...element.exportTpCommand(origin_matrix, include_tp,folder))
+      element.exportTpCommand(origin_matrix, include_tp, func)
     })
     this.sub_outliner.forEach(outline => {
-      result.push(...outline.exportTpCommands(tick, origin_matrix, include_tp,folder))
+      outline.exportTpCommands(tick, origin_matrix, include_tp, func)
     })
-    return result
   }
 }
 
@@ -548,7 +544,7 @@ export class BioBlock_keyframes {
 
 export class BioBlock_element {
 
-  exportTpCommand(origin_matrix: matrix, include_tp: boolean, folder: Path): string[] {
+  exportTpCommand(origin_matrix: matrix, include_tp: boolean, func: Function): void {
     const matrix = matrix_mul(origin_matrix, constructMatrix([this.origin[0], this.origin[1], -this.origin[2]], this.rotation))
     const [position, rotation] = deconstructMatrix(matrix_mul(
       [
@@ -560,26 +556,23 @@ export class BioBlock_element {
     const tolerance = 1
     const same = this.last_rotation?.map((rot, i) => (rot - rotation[i]) ** 2 < tolerance)?.reduce((x, y) => x && y, true) ?? false
 
-    console.log(`${this.rotation} | ${this.last_rotation}`)
-    console.log(`${this.last_rotation?.map((rot, i) => rot - rotation[i])}`)
-
     this.last_rotation = rotation
     if (include_tp && !same) {
-      const file = folder.child(`${this.part_id}.mcfunction`)
-      const commands = [
-        ...include_tp ? [`tp @s ^${float_round(position[0] / 16, 5)} ^${float_round(position[1] / 16, 5) - 0.45} ^${float_round(-position[2] / 16, 5)} ~ ~`] : [],
-        ...same ? [] : [`data modify entity @s Pose.Head set value [${float_round(-rotation[0], 5)}f,${float_round(rotation[1], 5)}f,${float_round(-rotation[2], 5)}f]`]
-      ]
-      file.write_text(commands.join('\n'))
-      return [
-        `execute as ${ENTITY_SELECTOR({distance : '..32', type: 'armor_stand', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} run function ${mcPath(file)}`
-      ]
+      func.addCommands(
+        [
+          `tp @s ^${float_round(position[0] / 16, 5)} ^${float_round(position[1] / 16, 5) - 0.45} ^${float_round(-position[2] / 16, 5)} ~ ~`,
+          `data modify entity @s Pose.Head set value [${float_round(-rotation[0], 5)}f,${float_round(rotation[1], 5)}f,${float_round(-rotation[2], 5)}f]`
+        ],
+        [`as ${ENTITY_SELECTOR({ distance: '..32', type: 'armor_stand', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })}`],
+        this.part_id
+      )
+      return
     }
-    const result = [
-      ...include_tp ? [`tp ${ENTITY_SELECTOR({distance : '..32', type: 'armor_stand', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} ^${float_round(position[0] / 16, 5)} ^${float_round(position[1] / 16, 5) - 0.45} ^${float_round(-position[2] / 16, 5)} ~ ~`] : [],
-      ...same ? [] : [`data modify entity ${ENTITY_SELECTOR({distance : '..32', type: 'armor_stand', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} Pose.Head set value [${float_round(-rotation[0], 5)}f,${float_round(rotation[1], 5)}f,${float_round(-rotation[2], 5)}f]`]
-    ]
-    return result
+    func.addCommands([
+      ...include_tp ? [`tp ${ENTITY_SELECTOR({ distance: '..32', type: 'armor_stand', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} ^${float_round(position[0] / 16, 5)} ^${float_round(position[1] / 16, 5) - 0.45} ^${float_round(-position[2] / 16, 5)} ~ ~`] : [],
+      ...same ? [] : [`data modify entity ${ENTITY_SELECTOR({ distance: '..32', type: 'armor_stand', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} Pose.Head set value [${float_round(-rotation[0], 5)}f,${float_round(rotation[1], 5)}f,${float_round(-rotation[2], 5)}f]`]
+    ])
+    return
   }
 
   bioblockmodel: BioBlockModel;
@@ -618,26 +611,28 @@ export class BioBlock_element {
 class BioBlock_animation {
   animation: BBmodel_animation;
   bioblockmodel: BioBlockModel;
-  animation_folder: Path;
-  api_function: Path;
-  frames_folder: Path;
+  frames_folder: FunctionFolder;
   start_frame: number | undefined;
   id: number;
   effect_animator: BioBlock_effect_animator;
+  animation_folder: FunctionFolder;
+  api_function: Function|undefined;
+  main_function: Function;
 
-  constructor(bioblockmodel: BioBlockModel, animation: BBmodel_animation, animation_id: number, animations_folder: Path) {
+  constructor(bioblockmodel: BioBlockModel, animation: BBmodel_animation, animation_id: number, animations_folder: FunctionFolder, export_api: boolean = true) {
     this.bioblockmodel = bioblockmodel
     this.animation = animation
     this.effect_animator = new BioBlock_effect_animator(bioblockmodel, animation.effect_animator)
 
-    this.api_function = this.bioblockmodel.api_folder.child(ANIMATION_FUNCTION(this.animation.name))
+    this.api_function = export_api?this.bioblockmodel.api_folder.function(`animation-${this.animation.name}`):undefined
     this.animation_folder = animations_folder.child(this.animation.name)
+    this.main_function = this.animation_folder.function('')
     this.frames_folder = this.animation_folder.child('frames')
 
     this.id = animation_id
   }
 
-  writeAllFrameFunctions(tickCounter: Counter, export_api: boolean = true): void {
+  writeAllFrameFunctions(tickCounter: Counter): void {
     this.bioblockmodel.outliner.forEach(outliner => outliner.resetRotationCache())
     this.bioblockmodel.setAnimation(this.animation)
 
@@ -654,7 +649,7 @@ class BioBlock_animation {
 
     this.writeMainFunction(first_tick as number)
 
-    if (export_api) {
+    if (this.api_function) {
       this.writeApiFunction()
     }
   }
@@ -662,72 +657,94 @@ class BioBlock_animation {
   writeMainFunction(first_tick: number): void {
     const main_function: string[] = [
       `scoreboard players set @s ${SCORE_FRAME} ${first_tick}`,
-      `schedule function ${mcPath(this.frames_folder.child(`${first_tick}`,'_.mcfunction'))} 1 replace`
+      `schedule function ${this.frames_folder.function(first_tick.toString()).mcPath} 1 replace`
     ]
-    this.animation_folder.child('.mcfunction').write_text(main_function.join('\n'))
+    this.main_function.addCommands(main_function)
   }
 
   writeApiFunction(): void {
     const commands = [
-      `execute unless entity ${ENTITY_SELECTOR({ tags: { [this.bioblockmodel.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${mcPath(this.api_function)} must be called as ${ENTITY_SELECTOR({ tags: { [this.bioblockmodel.tag]: true, [TAG_SLEEP]: false }, as_executer: true })}"}`,
+      `execute unless entity ${ENTITY_SELECTOR({ tags: { [this.bioblockmodel.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${this.api_function?.mcPath} must be called as ${ENTITY_SELECTOR({ tags: { [this.bioblockmodel.tag]: true, [TAG_SLEEP]: false }, as_executer: true })}"}`,
       `execute if entity ${ENTITY_SELECTOR({ tags: { [this.bioblockmodel.tag]: true, [TAG_SLEEP]: false }, scores: {}, as_executer: true })} run scoreboard players set @s ${SCORE_NEXT} ${this.id}`
     ]
-    this.api_function.write_text(
-      commands.join('\n'),
-      true
-    )
+    this.api_function?.addCommands(commands)
+  }
+
+  preFrameFunction(tick: number): Function {
+    return this.frames_folder.function(tick.toString() + '_')
+  }
+  
+  frameFunction(tick: number): Function {
+    return this.frames_folder.function(tick.toString())
   }
 
   writePreFrameFunction(tick: number, total_tick: number): void {
-    const folder = this.frames_folder.child(tick.toString())
     const commands = [
-      `execute unless entity @e[limit=1] run schedule function ${mcPath(folder.child(`_.mcfunction`))} 1 replace`,
-      `execute as ${ENTITY_SELECTOR({ tags: { [this.bioblockmodel.tag]: true, [TAG_SLEEP]: false }, scores: { [SCORE_FRAME]: total_tick.toString() } })} at @s rotated ~ 0 run function ${mcPath(folder.child('.mcfunction'))}`
+      `execute unless entity @e[limit=1] run schedule function ${this.preFrameFunction(tick).mcPath} 1 replace`,
+      `execute as ${ENTITY_SELECTOR({ tags: { [this.bioblockmodel.tag]: true, [TAG_SLEEP]: false }, scores: { [SCORE_FRAME]: total_tick.toString() } })} at @s rotated ~ 0 run function ${this.frameFunction(tick).mcPath}`
     ]
-    folder.child('_.mcfunction').write_text(commands.join('\n'), true)
+    this.preFrameFunction(tick).addCommands(commands)
   }
 
   writeFrameFunction(tick: number, total_tick: number, isLast: boolean, first_frame: number): void {
     // tpは3チックに一回でも滑らかに見えるのでtp出力するかの別
     const export_tp = tick % 3 == 0 || isLast
-    const folder = this.frames_folder.child(tick.toString())
+    const func = this.frameFunction(tick)
 
-    const commands: string[] = [
+    func.addCommands([
       `scoreboard players operation _ ${SCORE_ID} = @s ${SCORE_ID}`,
       `scoreboard players operation ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ALL]: true } })} ${SCORE_ID} -= _ ${SCORE_ID}`,
-      `tag ${ENTITY_SELECTOR({ distance : '..32',type: 'armor_stand', tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} add ${TAG_ACTIVE}`,
-      `tag ${ENTITY_SELECTOR({distance : '..32', type: 'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
-      '',
-      ...this.bioblockmodel.outliner.flatMap(outliner => outliner.exportTpCommands(tick, UNIT_MATRIX, export_tp,folder)),
+      `tag ${ENTITY_SELECTOR({ distance: '..32', type: 'armor_stand', tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} add ${TAG_ACTIVE}`,
+      `tag ${ENTITY_SELECTOR({ distance: '..32', type: 'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
+    ])
+
+    this.bioblockmodel.outliner.forEach(outliner => outliner.exportTpCommands(tick, UNIT_MATRIX, export_tp, func))
+
+    func.addCommands([
+      // TODO: effectAnimatorのoutline組み込み
       ...this.effect_animator.exportCommands(tick),
       '',
-      `tag ${ENTITY_SELECTOR({distance : '..32', type: 'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,
-      `scoreboard players operation ${ENTITY_SELECTOR({type: 'armor_stand', tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
-      `scoreboard players operation @s ${SCORE_ID} = _ ${SCORE_ID}`,
-      ...(isLast
-        ? [
-          ...{
-            // 1tick後に__snooze__状態になる
-            once: [
-              `execute unless score @s ${SCORE_NEXT} matches 1..${this.bioblockmodel.animations.length} run scoreboard players set @s ${SCORE_FRAME} 0`,
-              `execute unless score @s ${SCORE_NEXT} matches 1..${this.bioblockmodel.animations.length} run schedule function ${mcPath(this.bioblockmodel.snooze.frames_folder.child('0','_.mcfunction'))} 1`
-            ],
-            // 1tick後にこのファンクションを呼び出す
-            hold: [`execute unless score @s ${SCORE_NEXT} matches 1..${this.bioblockmodel.animations.length} run schedule function ${mcPath(this.frames_folder.child(tick.toString() , '_.mcfunction'))} 1`],
-            // 1tick後にこのアニメーションの最初に戻る
-            loop: [
-              `execute unless score @s ${SCORE_NEXT} matches 1..${this.bioblockmodel.animations.length} run scoreboard players set @s ${SCORE_FRAME} ${first_frame}`,
-              `execute unless score @s ${SCORE_NEXT} matches 1..${this.bioblockmodel.animations.length} run schedule function ${mcPath(this.frames_folder.child('0','_.mcfunction'))} 1t`
-            ],
-          }[this.animation.loop],
-          `function ${mcPath(this.bioblockmodel.select_function)}`
-        ]
-        : [
-          `scoreboard players set @s ${SCORE_FRAME} ${total_tick + 1}`,
-          `schedule function ${mcPath(this.frames_folder.child((tick + 1).toString(),'_.mcfunction'))} 1t replace`
-        ])
-    ]
-    folder.child('.mcfunction').write_text(commands.join('\n'), true)
+      `tag ${ENTITY_SELECTOR({ distance: '..32', type: 'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,
+      `scoreboard players operation ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
+      `scoreboard players operation @s ${SCORE_ID} = _ ${SCORE_ID}`
+    ])
+    if (isLast) {
+      // 最後のtick
+      switch (this.animation.loop) {
+        case 'once':
+          // 1tick後に__snooze__状態になる
+          func.addCommands([
+            `execute unless score @s ${SCORE_NEXT} matches 1..${this.bioblockmodel.animations.length} run scoreboard players set @s ${SCORE_FRAME} 0`,
+            `execute unless score @s ${SCORE_NEXT} matches 1..${this.bioblockmodel.animations.length} run schedule function ${this.bioblockmodel.snooze.preFrameFunction(0).mcPath} 1`
+          ])
+          break;
+
+        case 'hold':
+          // 1tick後にこのファンクションを呼び出す
+          func.addCommands([
+            `execute unless score @s ${SCORE_NEXT} matches 1..${this.bioblockmodel.animations.length} run schedule function ${this.preFrameFunction(tick).mcPath} 1`
+          ])
+          break;
+        case 'loop':
+          // 1tick後にこのアニメーションの最初に戻る
+          func.addCommands([
+            `execute unless score @s ${SCORE_NEXT} matches 1..${this.bioblockmodel.animations.length} run scoreboard players set @s ${SCORE_FRAME} ${first_frame}`,
+            `execute unless score @s ${SCORE_NEXT} matches 1..${this.bioblockmodel.animations.length} run schedule function ${this.preFrameFunction(0).mcPath} 1t`
+          ])
+          break;
+
+        default:
+          break;
+      }
+      func.addCommands(this.bioblockmodel.select_function.call())
+
+    } else {
+      // 最後でないtick
+      func.addCommands([
+        `scoreboard players set @s ${SCORE_FRAME} ${total_tick + 1}`,
+        `schedule function ${this.preFrameFunction(tick + 1).mcPath} 1t replace`
+      ])
+    }
   }
 }
 

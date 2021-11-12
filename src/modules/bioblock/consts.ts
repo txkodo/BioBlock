@@ -17,8 +17,6 @@ export const TAG_ENTITYPART = (entityname:string,partid:string) => `BioBlock-${e
 
 export const SOUND_FILE   = (filename:string) => `bioblock:${filename}`
 
-export const ANIMATION_FUNCTION = (animation_name:string) => `animation-${animation_name}.mcfunction`
-
 type selector_arguments = {
   type?:string
   tags?:{[i:string]:boolean}

@@ -38,7 +38,7 @@ export class Directory {
   makedir(keys: string[], { parent, exist_ok }: { parent?: boolean, exist_ok?: boolean } = { parent: false, exist_ok: false }) {
     const o = this.obj[keys[0]]
     if (keys.length == 0) {
-      this.parent?.makedir([this.name as string], {parent})
+      this.parent?.makedir([this.name as string], { parent })
     } else {
       if (o === undefined) {
         // 存在しない場合
@@ -51,7 +51,7 @@ export class Directory {
         // 存在した場合
         if (keys.length = 1 || exist_ok) {
           if (keys.length > 1) {
-            (this.obj[keys[0]] as Directory).makedir(keys.slice(1), {parent, exist_ok})
+            (this.obj[keys[0]] as Directory).makedir(keys.slice(1), { parent, exist_ok })
           }
         } else {
           throw new DirectoryError('directry already exists.')
@@ -124,6 +124,26 @@ export class Path {
     this.root_path = segments.length == 0 ? this : new Path(root)
     this.root = root ?? new Directory()
     this.segments = segments
+  }
+
+  get name(): string {
+    return this.segments[this.segments.length-1]
+  }
+
+  get suffix(): string | undefined {
+    const name = this.name
+    const index = name.lastIndexOf('.')
+    if (index === -1) return
+    return name.slice(index+1)
+  }
+  
+  get stem(): string {
+    const name = this.name
+    let index:number|undefined = name.lastIndexOf('.')
+    if (index == -1){
+      index = undefined
+    }
+    return name.slice(undefined,index)
   }
 
   child(...segments: string[]) {

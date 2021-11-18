@@ -85,7 +85,7 @@ export const getRotation = (matrix: matrix): [number, number] => {
   const x = matrix[2]
   const y = matrix[6]
   const z = matrix[10]
-  return [180 + degrees(Math.atan2(z, -x)), degrees(Math.atan(y / (x ** 2 + z ** 2) ** 0.5)) - 90]
+  return [degrees(Math.atan2(z, -x)), degrees(Math.atan(y / (x ** 2 + z ** 2) ** 0.5))]
 }
 
 export const getTranspose = (matrix: matrix): vec3 => {

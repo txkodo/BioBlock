@@ -18,10 +18,11 @@ export class Curve3D {
   }
 
   eval(t:number):vec3{
-    return [
+    const a:vec3 = [
       this.x.eval(t),
       this.y.eval(t),
       this.z.eval(t)
     ]
+    return a
   }
 }

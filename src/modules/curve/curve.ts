@@ -56,7 +56,7 @@ class Hermite implements segment {
         m1 * t + y1
       )
     }
-  setPostPoint() { }
+  setPostPoint() {}
 }
 
 class CatmullRom implements segment {
@@ -157,7 +157,7 @@ export class Curve implements curve {
 
   eval(t: number): number {
     const outRange = this.first_point ? (t <= this.first_point.t ? this.first_point.y : this.last_point.y) : this.last_point.y
-    const a = this.segments.find(crv => crv.eval(t))?.eval(t) ?? outRange
+    const a = this.segments.find(crv => crv.eval(t) !== undefined)?.eval(t) ?? outRange
     return a
   }
 }

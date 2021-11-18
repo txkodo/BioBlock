@@ -42,7 +42,7 @@ class ScriptSequence {
     return 0 <= tick_difference && tick_difference <= this.span ?
       [
         this.script()
-          .replace('(?<!\\)%', (this.start + this.step * tick_difference).toString())
+          .replace(/(?<!\\)%/, (this.start + this.step * tick_difference).toString())
           .replace('\\%', '%')
       ] : []
   }

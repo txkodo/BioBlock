@@ -7,7 +7,7 @@ import { Counter } from "../util/counter";
 import { Datapack, Function, FunctionFolder, mcPath } from "../util/datapack";
 import { Path } from "../util/folder";
 import { float_round } from "../util/number";
-import { constructMatrix, deconstructMatrix, invertZ, matrix, matrix_mul, relativeOrigin, UNIT_MATRIX, vec3, vec3_add } from "../util/vector";
+import { constructMatrix, deconstructMatrix, getRotation, getTranspose, invertZ, matrix, matrix_mul, relativeOrigin, UNIT_MATRIX, vec3, vec3_add } from "../util/vector";
 import { combine_elements } from "./bbelem_to_java";
 import { sound_json } from "../model/types/resourcepack";
 import { bbmodel_json } from "../model/types/bbmodel_json";
@@ -553,14 +553,17 @@ export class BioBlock_element {
         0, 0, -1, 0,
       ],
       matrix))
-    const tolerance = 1
+    const tolerance = 1    
     const same = this.last_rotation?.map((rot, i) => (rot - rotation[i]) ** 2 < tolerance)?.reduce((x, y) => x && y, true) ?? false
+    if ( !same) {
+      this.last_rotation = rotation
+    }
 
-    this.last_rotation = rotation
+    const y_offset = -0.45
     if (include_tp && !same) {
       func.addCommands(
         [
-          `tp @s ^${float_round(position[0] / 16, 5)} ^${float_round(position[1] / 16, 5) - 0.45} ^${float_round(-position[2] / 16, 5)} ~ ~`,
+          `tp @s ^${float_round(position[0] / 16, 5)} ^${float_round(position[1] / 16, 5) + y_offset} ^${float_round(-position[2] / 16, 5)} ~ ~`,
           `data modify entity @s Pose.Head set value [${float_round(-rotation[0], 5)}f,${float_round(rotation[1], 5)}f,${float_round(-rotation[2], 5)}f]`
         ],
         [`as ${ENTITY_SELECTOR({ distance: '..32', type: 'armor_stand', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })}`],
@@ -569,7 +572,7 @@ export class BioBlock_element {
       return
     }
     func.addCommands([
-      ...include_tp ? [`tp ${ENTITY_SELECTOR({ distance: '..32', type: 'armor_stand', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} ^${float_round(position[0] / 16, 5)} ^${float_round(position[1] / 16, 5) - 0.45} ^${float_round(-position[2] / 16, 5)} ~ ~`] : [],
+      ...include_tp ? [`tp ${ENTITY_SELECTOR({ distance: '..32', type: 'armor_stand', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} ^${float_round(position[0] / 16, 5)} ^${float_round(position[1] / 16, 5) + y_offset} ^${float_round(-position[2] / 16, 5)} ~ ~`] : [],
       ...same ? [] : [`data modify entity ${ENTITY_SELECTOR({ distance: '..32', type: 'armor_stand', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} Pose.Head set value [${float_round(-rotation[0], 5)}f,${float_round(rotation[1], 5)}f,${float_round(-rotation[2], 5)}f]`]
     ])
     return
@@ -698,6 +701,8 @@ class BioBlock_animation {
       `tag ${ENTITY_SELECTOR({ distance: '..32', type: 'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
     ])
 
+    console.log(tick);
+    
     this.bioblockmodel.outliner.forEach(outliner => outliner.exportTpCommands(tick, UNIT_MATRIX, export_tp, func))
 
     func.addCommands([
@@ -718,7 +723,6 @@ class BioBlock_animation {
             `execute unless score @s ${SCORE_NEXT} matches 1..${this.bioblockmodel.animations.length} run schedule function ${this.bioblockmodel.snooze.preFrameFunction(0).mcPath} 1`
           ])
           break;
-
         case 'hold':
           // 1tick後にこのファンクションを呼び出す
           func.addCommands([
@@ -732,7 +736,6 @@ class BioBlock_animation {
             `execute unless score @s ${SCORE_NEXT} matches 1..${this.bioblockmodel.animations.length} run schedule function ${this.preFrameFunction(0).mcPath} 1t`
           ])
           break;
-
         default:
           break;
       }
@@ -791,9 +794,11 @@ class BioBlock_effect_animator {
 
         option.positions = outliners.map(outliner => {
           return () => {
-            const [position, rotation] = deconstructMatrix(outliner.matrix);
-            return `execute positioned ~${float_round(position[0] / 16, 5)} ~${float_round(position[1] / 16, 5)} ~${-float_round(position[2] / 16, 5)}` +
-              ` rotated ~${-float_round(rotation[2], 5)} ~${float_round(rotation[2], 5)} run `
+            const [x,y,z] = getTranspose(outliner.matrix)
+            const [yaw,pitch] = getRotation(outliner.matrix)
+            console.log(yaw,pitch);
+            return `execute positioned ^${- float_round(x / 16, 5)} ^${float_round(y / 16, 5)} ^${float_round(z / 16, 5)}` +
+              ` rotated ~${-float_round( 90 - yaw, 5)} ~${float_round(pitch, 5)} run `
           }
         })
       }

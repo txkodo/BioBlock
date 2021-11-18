@@ -81,6 +81,17 @@ export const constructMatrix = (transpose: vec3, rotation: vec3) => {
   return matrix_mul(transpose_matrix(transpose), rotation_matrix(rotation))
 }
 
+export const getRotation = (matrix: matrix): [number, number] => {
+  const x = matrix[2]
+  const y = matrix[6]
+  const z = matrix[10]
+  return [180 + degrees(Math.atan2(z, -x)), degrees(Math.atan(y / (x ** 2 + z ** 2) ** 0.5)) - 90]
+}
+
+export const getTranspose = (matrix: matrix): vec3 => {
+  return [matrix[3], matrix[7], matrix[11]]
+}
+
 export const deconstructMatrix = (matrix: matrix): [vec3, vec3] => {
   // rz: -180 ~ 180
   const rz = Math.atan2(matrix[4], matrix[0])
@@ -88,5 +99,5 @@ export const deconstructMatrix = (matrix: matrix): [vec3, vec3] => {
   const rx = Math.atan2(matrix[9], matrix[10])
   // ry: -90 ~ 90
   const ry = Math.atan(-matrix[8] / Math.sqrt(matrix[9] ** 2 + matrix[10] ** 2))
-  return [[matrix[3], matrix[7], matrix[11]], [rx, ry, rz].map(x => degrees(x)) as vec3]
+  return [getTranspose(matrix), [rx, ry, rz].map(x => degrees(x)) as vec3]
 }

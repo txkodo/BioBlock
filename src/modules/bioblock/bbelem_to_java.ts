@@ -189,7 +189,7 @@ export const rotateJavaElement = (element: JavaElement, rotation: vec3<right_ang
 }
 
 const optimizeJavaModel = (javaModel: JavaModel): [JavaModel, vec3] => {
-  const bbox = [[Infinity, 0], [Infinity, 0], [Infinity, 0]]
+  const bbox = [[Infinity, -Infinity], [Infinity, -Infinity], [Infinity, -Infinity]]
   const updateBbox = (v: vec3) => {
     v.forEach((x, i) => {
       bbox[i][0] = Math.min(bbox[i][0], x)

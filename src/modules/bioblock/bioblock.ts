@@ -559,7 +559,7 @@ export class BioBlock_element {
       this.last_rotation = rotation
     }
 
-    const y_offset = -0.45
+    const y_offset = -0.6
     if (include_tp && !same) {
       func.addCommands(
         [

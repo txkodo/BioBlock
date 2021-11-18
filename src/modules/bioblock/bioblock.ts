@@ -11,7 +11,7 @@ import { constructMatrix, deconstructMatrix, getRotation, getTranspose, invertZ,
 import { combine_elements } from "./bbelem_to_java";
 import { sound_json } from "../model/types/resourcepack";
 import { bbmodel_json } from "../model/types/bbmodel_json";
-import { ENTITY_SELECTOR, NAMESPACE, SCORE_FRAME, SCORE_ID, SCORE_ID_GLOBAL, SCORE_NEXT, SOUND_FILE, TAG_ACTIVE, TAG_ALL, TAG_ENTITY, TAG_ENTITYPART, TAG_GC, TAG_SLEEP, TAG_TEMP } from './consts';
+import { ENTITY_SELECTOR, ENTITY_TYPES, NAMESPACE, SCORE_FRAME, SCORE_ID, SCORE_ID_GLOBAL, SCORE_NEXT, SOUND_FILE, TAG_ACTIVE, TAG_ALL, TAG_ENTITY, TAG_ENTITYHITBOX, TAG_ENTITYPART, TAG_GC, TAG_HITBOX, TAG_SLEEP, TAG_TEMP } from './consts';
 
 const extractFileName = (path: string): string => {
   const file = path.split(/[\/\\]/)
@@ -175,8 +175,8 @@ export class BioBlock {
 
   wirte_tick_function() {
     const tickfunc = [
-      `execute if entity ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_GC]: true } })} run kill ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_GC]: true } })}`,
-      `tag ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ALL]: true, [TAG_SLEEP]: false } })} add ${TAG_GC}`
+      `execute if entity ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_GC]: true } })} run kill ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_GC]: true } })}`,
+      `tag ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true, [TAG_SLEEP]: false } })} add ${TAG_GC}`
     ]
     this.tick_function.addCommands(tickfunc)
   }
@@ -294,7 +294,7 @@ export class BioBlockModel {
       length: 0.04,
       animators: {}
     }, model.outliner)
-    this.snooze = new BioBlock_animation(this, snooze_animation, animation_id.next(), this.core_folder,false)
+    this.snooze = new BioBlock_animation(this, snooze_animation, animation_id.next(), this.core_folder, false)
     this.outliner = model.outliner.map(outliner => new BioBlock_outliner(this, outliner, part_id, customModelDataCounter, this.textures_folder))
     this.animations = model.animations.map(animation => new BioBlock_animation(this, animation, animation_id.next(), this.core_folder.child('animations')))
 
@@ -348,18 +348,22 @@ export class BioBlockModel {
     //   `tag ${ENTITY_SELECTOR({ type:'armor_stand', tags: { [TAG_TEMP]: true } })} remove ${TAG_TEMP}`,
     //   `schedule function ${mcPath(this.snooze.frames_folder.child('0_'))} 1t replace`
     // ]
-    const summon_commands = [
+    this.summon_function.addCommands([
       `tag @s add ${this.tag}`,
       `tag @s add ${TAG_ALL}`,
-      `scoreboard players set @s ${SCORE_FRAME} 0`,
-      ...this.outliner.flatMap(outliner => outliner.exportSummons()),
+      `scoreboard players set @s ${SCORE_FRAME} 0`
+    ])
+
+    this.outliner.forEach(outliner => outliner.exportSummons(this.summon_function))
+
+    this.summon_function.addCommands([
       `scoreboard players operation @s ${SCORE_ID} = ${SCORE_ID_GLOBAL} ${SCORE_ID}`,
-      `scoreboard players operation ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_TEMP]: true } })} ${SCORE_ID} = ${SCORE_ID_GLOBAL} ${SCORE_ID}`,
+      `scoreboard players operation ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_TEMP]: true } })} ${SCORE_ID} = ${SCORE_ID_GLOBAL} ${SCORE_ID}`,
       `scoreboard players add ${SCORE_ID_GLOBAL} ${SCORE_ID} 1`,
-      `tag ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_TEMP]: true } })} remove ${TAG_TEMP}`,
+      `tag ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_TEMP]: true } })} remove ${TAG_TEMP}`,
       `schedule function ${this.snooze.preFrameFunction(0).mcPath} 1t replace`
-    ]
-    this.summon_function.addCommands(summon_commands)
+    ])
+
     const api_commands = [
       `execute if entity ${ENTITY_SELECTOR({ tags: { [TAG_ALL]: true }, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${this.sleep_api_function.mcPath} must NOT be called as ${ENTITY_SELECTOR({ tags: { [TAG_ALL]: true }, as_executer: true })}"}`,
       `execute unless entity ${ENTITY_SELECTOR({ tags: { [TAG_ALL]: true }, as_executer: true })} at @s run function ${this.summon_function.mcPath}`
@@ -373,8 +377,8 @@ export class BioBlockModel {
       `tag @s remove ${TAG_ALL}`,
       `tag @s remove ${this.tag}`,
       `scoreboard players operation _ ${SCORE_ID} = @s ${SCORE_ID}`,
-      `kill ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })}`,
-      `scoreboard players operation ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
+      `kill ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })}`,
+      `scoreboard players operation ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
       `scoreboard players reset @s ${SCORE_ID}`
     ]
     this.kill_function.addCommands(commands)
@@ -397,12 +401,12 @@ export class BioBlockModel {
     const commands = [
       `tag @s add ${TAG_SLEEP}`,
       `scoreboard players operation _ ${SCORE_ID} = @s ${SCORE_ID}`,
-      `scoreboard players operation ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ALL]: true } })} ${SCORE_ID} -= _ ${SCORE_ID}`,
-      `tag ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} add ${TAG_ACTIVE}`,
-      `tag ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ACTIVE]: true } })} add ${TAG_SLEEP}`,
-      `tag ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
-      `tag ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,
-      `scoreboard players operation ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
+      `scoreboard players operation ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true } })} ${SCORE_ID} -= _ ${SCORE_ID}`,
+      `tag ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} add ${TAG_ACTIVE}`,
+      `tag ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ACTIVE]: true } })} add ${TAG_SLEEP}`,
+      `tag ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
+      `tag ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,
+      `scoreboard players operation ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
     ]
     this.sleep_function.addCommands(commands)
     const api_commands = [
@@ -415,12 +419,12 @@ export class BioBlockModel {
   writeAwakeCommands(): void {
     const commands = [
       `tag @s remove ${TAG_SLEEP}`,
-      `scoreboard players operation ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ALL]: true } })} ${SCORE_ID} -= @s ${SCORE_ID}`,
-      `tag ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} add ${TAG_ACTIVE}`,
-      `tag ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_SLEEP}`,
-      `tag ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
-      `tag ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,
-      `scoreboard players operation ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ALL]: true } })} ${SCORE_ID} += @s ${SCORE_ID}`,
+      `scoreboard players operation ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true } })} ${SCORE_ID} -= @s ${SCORE_ID}`,
+      `tag ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} add ${TAG_ACTIVE}`,
+      `tag ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ACTIVE]: true } })} remove ${TAG_SLEEP}`,
+      `tag ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
+      `tag ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,
+      `scoreboard players operation ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true } })} ${SCORE_ID} += @s ${SCORE_ID}`,
       `function ${this.snooze.preFrameFunction(0).mcPath}`
     ]
     this.awake_function.addCommands(commands)
@@ -449,10 +453,28 @@ export class BioBlock_outliner {
   sub_outliner: BioBlock_outliner[];
   elements?: BioBlock_element[];
   matrix: matrix;
+  hitbox_size: number | undefined = undefined;
+  tag: string;
+  name: string;
 
   constructor(bioblockmodel: BioBlockModel, outliner: BBmodel_outliner, part_id: Counter, custom_model_data: Counter, texture_path: Path) {
     this.bioblockmodel = bioblockmodel
     this.outliner = outliner
+
+    this.name = outliner.name
+
+    // hitboxかどうか
+    const match = outliner.name.match(/^(.*)_hitbox([1-9][0-9]*)$/)
+    if (match) {
+      this.name = match[1]
+      this.hitbox_size = parseInt(match[2])
+    }
+    console.log(outliner.name);
+    console.log(this.hitbox_size);
+    
+
+    this.tag = TAG_ENTITYHITBOX(bioblockmodel.model.name, this.name)
+
     if (outliner.elements) {
       this.elements = combine_elements(outliner.elements, bioblockmodel.model.resolution, texture_path).map(([JavaModel, origin, rotation]) => new BioBlock_element(bioblockmodel, JavaModel, origin, rotation, part_id.next().toString(), custom_model_data.next()))
     }
@@ -485,8 +507,14 @@ export class BioBlock_outliner {
     this.keyframes = new BioBlock_keyframes(keyframes, this.outliner.origin, this.outliner.rotation)
   }
 
-  exportSummons(): string[] {
-    return [...this.elements?.map(element => element.exportSummon()) ?? [], ...this.sub_outliner.flatMap(outliner => outliner.exportSummons())]
+  exportSummons(func: Function): void {
+    if (this.hitbox_size !== undefined) {
+      func.addCommand(
+        `summon minecraft:slime ~ ~ ~ { Size: ${this.hitbox_size},Tags:[${TAG_TEMP},${TAG_HITBOX},${this.tag},${TAG_ALL}] , Attributes: [{Base: 1024.0d, Name: "minecraft:generic.max_health"}], Invulnerable: 0b, PersistenceRequired: 1b, Health: 1024.0f, Silent: 1b,OnGround: 0b, NoAI: 1b}`
+      )
+    }
+    this.elements?.forEach(element => element.exportSummon(func))
+    this.sub_outliner.forEach(outliner => outliner.exportSummons(func))
   }
 
   writeModels(entitymodel_folder: Path): JavaItemOverride[] {
@@ -510,6 +538,14 @@ export class BioBlock_outliner {
     this.matrix = matrix_mul(matrix, this.getMatrix(tick))
     const origin_matrix = matrix_mul(matrix, this.getRalativeOrigin(tick))
     let result: string[] = []
+
+    if ( include_tp && this.hitbox_size !== undefined) {
+      const [x, y, z] = getTranspose(this.matrix)
+      func.addCommand(
+        `tp ${ENTITY_SELECTOR({ distance: '..32', type: 'slime', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} ~${float_round(x / 16, 5)} ~${float_round(y / 16, 5) - (this.hitbox_size + 1) * 0.25 } ~${-float_round(z / 16, 5)}`
+      )
+    }
+
     this.elements?.forEach(element => {
       element.exportTpCommand(origin_matrix, include_tp, func)
     })
@@ -553,9 +589,9 @@ export class BioBlock_element {
         0, 0, -1, 0,
       ],
       matrix))
-    const tolerance = 1    
+    const tolerance = 1
     const same = this.last_rotation?.map((rot, i) => (rot - rotation[i]) ** 2 < tolerance)?.reduce((x, y) => x && y, true) ?? false
-    if ( !same) {
+    if (!same) {
       this.last_rotation = rotation
     }
 
@@ -596,8 +632,10 @@ export class BioBlock_element {
     this.tag = TAG_ENTITYPART(this.bioblockmodel.model.name, this.part_id)
   }
 
-  exportSummon(): string {
-    return `summon armor_stand ~ ~ ~ {Tags:[${TAG_TEMP},${this.tag},${TAG_ALL}],Small:1b,Marker:1b,Invisible:1b,NoBasePlate:1b,ArmorItems:[{},{},{},{id:"${this.bioblockmodel.bioblock.model_item}",Count:1b,tag:{CustomModelData:${this.custom_model_data}}}]}`
+  exportSummon(func: Function): void {
+    func.addCommand(
+      `summon armor_stand ~ ~ ~ {Tags:[${TAG_TEMP},${this.tag},${TAG_ALL}],Small:1b,Marker:1b,Invisible:1b,NoBasePlate:1b,ArmorItems:[{},{},{},{id:"${this.bioblockmodel.bioblock.model_item}",Count:1b,tag:{CustomModelData:${this.custom_model_data}}}]}`
+    )
   }
 
   resetRotationCache() {
@@ -619,7 +657,7 @@ class BioBlock_animation {
   id: number;
   effect_animator: BioBlock_effect_animator;
   animation_folder: FunctionFolder;
-  api_function: Function|undefined;
+  api_function: Function | undefined;
   main_function: Function;
 
   constructor(bioblockmodel: BioBlockModel, animation: BBmodel_animation, animation_id: number, animations_folder: FunctionFolder, export_api: boolean = true) {
@@ -627,7 +665,7 @@ class BioBlock_animation {
     this.animation = animation
     this.effect_animator = new BioBlock_effect_animator(bioblockmodel, animation.effect_animator)
 
-    this.api_function = export_api?this.bioblockmodel.api_folder.function(`animation-${this.animation.name}`):undefined
+    this.api_function = export_api ? this.bioblockmodel.api_folder.function(`animation-${this.animation.name}`) : undefined
     this.animation_folder = animations_folder.child(this.animation.name)
     this.main_function = this.animation_folder.function('')
     this.frames_folder = this.animation_folder.child('frames')
@@ -676,7 +714,7 @@ class BioBlock_animation {
   preFrameFunction(tick: number): Function {
     return this.frames_folder.function(tick.toString() + '_')
   }
-  
+
   frameFunction(tick: number): Function {
     return this.frames_folder.function(tick.toString())
   }
@@ -696,21 +734,19 @@ class BioBlock_animation {
 
     func.addCommands([
       `scoreboard players operation _ ${SCORE_ID} = @s ${SCORE_ID}`,
-      `scoreboard players operation ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ALL]: true } })} ${SCORE_ID} -= _ ${SCORE_ID}`,
-      `tag ${ENTITY_SELECTOR({ distance: '..32', type: 'armor_stand', tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} add ${TAG_ACTIVE}`,
-      `tag ${ENTITY_SELECTOR({ distance: '..32', type: 'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
+      `scoreboard players operation ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true } })} ${SCORE_ID} -= _ ${SCORE_ID}`,
+      `tag ${ENTITY_SELECTOR({ distance: '..32', type: ENTITY_TYPES, tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} add ${TAG_ACTIVE}`,
+      `tag ${ENTITY_SELECTOR({ distance: '..32', type: ENTITY_TYPES, tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
     ])
 
-    console.log(tick);
-    
     this.bioblockmodel.outliner.forEach(outliner => outliner.exportTpCommands(tick, UNIT_MATRIX, export_tp, func))
 
     func.addCommands([
       // TODO: effectAnimatorのoutline組み込み
       ...this.effect_animator.exportCommands(tick),
       '',
-      `tag ${ENTITY_SELECTOR({ distance: '..32', type: 'armor_stand', tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,
-      `scoreboard players operation ${ENTITY_SELECTOR({ type: 'armor_stand', tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
+      `tag ${ENTITY_SELECTOR({ distance: '..32', type: ENTITY_TYPES, tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,
+      `scoreboard players operation ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
       `scoreboard players operation @s ${SCORE_ID} = _ ${SCORE_ID}`
     ])
     if (isLast) {
@@ -794,11 +830,11 @@ class BioBlock_effect_animator {
 
         option.positions = outliners.map(outliner => {
           return () => {
-            const [x,y,z] = getTranspose(outliner.matrix)
-            const [yaw,pitch] = getRotation(outliner.matrix)
-            console.log(yaw,pitch);
+            const [x, y, z] = getTranspose(outliner.matrix)
+            const [yaw, pitch] = getRotation(outliner.matrix)
+            console.log(yaw, pitch);
             return `execute positioned ^${- float_round(x / 16, 5)} ^${float_round(y / 16, 5)} ^${float_round(z / 16, 5)}` +
-              ` rotated ~${-float_round( 90 - yaw, 5)} ~${float_round(pitch, 5)} run `
+              ` rotated ~${-float_round(90 - yaw, 5)} ~${float_round(pitch, 5)} run `
           }
         })
       }

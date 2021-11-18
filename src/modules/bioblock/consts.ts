@@ -8,12 +8,15 @@ export const TAG_TEMP     = 'BioBlock_'
 export const TAG_ACTIVE   = 'BioBlock_ACTIVE'
 export const TAG_GC       = 'BioBlock_GC'
 export const TAG_SLEEP    = 'BioBlock_SLEEP'
+export const TAG_HITBOX   = 'BioBlock_HITBOX'
 
 export const NAMESPACE    = 'bioblock'
 
+export const ENTITY_TYPES = '#bioblock:core/main'
 
 export const TAG_ENTITY   = (entityname:string) => `BioBlock-${entityname}`
 export const TAG_ENTITYPART = (entityname:string,partid:string) => `BioBlock-${entityname}-${partid}`
+export const TAG_ENTITYHITBOX = (entityname:string,partname:string) => `BioBlock-${entityname}--${partname}`
 
 export const SOUND_FILE   = (filename:string) => `bioblock:${filename}`
 

@@ -31,24 +31,105 @@ export class DatapackNamespace {
   private datapack: Datapack;
   path: Path;
   functionFolder: FunctionFolder;
+  tagsFolder: TagsFolder;
   constructor(datapack: Datapack, namespace: string) {
     this.datapack = datapack
     this.path = datapack.path.child('data', namespace)
     this.functionFolder = new FunctionFolder(this, this.path.child('functions'))
+    this.tagsFolder = new TagsFolder(this, this.path.child('tags'))
   }
 
   export() {
     this.functionFolder.export()
+    this.tagsFolder.export()
   }
 }
 
 type subcommand = string[]
 
+export class EachTagsFolder {
+  parent: TagsFolder | EachTagsFolder;
+  path: Path;
+  tags: { [key: string]: Tag };
+  children: { [key: string]: EachTagsFolder };
+  constructor(parent: TagsFolder | EachTagsFolder, path: Path) {
+    this.parent = parent
+    this.path = path
+    this.tags = {}
+    this.children = {}
+  }
+  export() {
+    Object.values(this.children).forEach(child => child.export())
+    Object.values(this.tags).forEach(child => child.export())
+  }
+
+  child(name: string) {
+    if (this.children[name]) {
+      return this.children[name]
+    }
+    const c = new EachTagsFolder(this, this.path.child(name))
+    this.children[name] = c
+    return c
+  }
+
+  tag(name: string, replace?: boolean) {
+    name = `${name}.json`
+    if (this.tags[name]) {
+      return this.tags[name]
+    }
+    const f = new Tag(this.path.child(name), replace)
+
+    this.tags[name] = f
+    return f
+  }
+}
+
+export class TagsFolder {
+  parent: DatapackNamespace;
+  func_path: Path;
+  functions: EachTagsFolder;
+  entity_types: EachTagsFolder;
+  constructor(parent: DatapackNamespace, path: Path) {
+    this.parent = parent
+    this.func_path = path
+    this.functions    = new EachTagsFolder(this, path.child('functions'))
+    this.entity_types = new EachTagsFolder(this, path.child('entity_types'))
+  }
+
+  export():void{
+    this.functions.export()
+    this.entity_types.export()
+  }
+}
+
+export class Tag {
+  private path: Path;
+  private values: string[];
+  replace: boolean | undefined;
+  constructor(path: Path,replace?:boolean) {
+    this.path = path
+    this.values = []
+    this.replace = replace
+  }
+
+  addValue(...value:string[]):void {
+    this.values.push(...value)
+  }
+
+  export() {
+    this.path.write_json({values:this.values,replace:this.replace}, true)
+  }
+  
+  get mcPath() {
+    return mcPath(this.path)
+  }
+}
+
 export class FunctionFolder {
   parent: DatapackNamespace | FunctionFolder;
   func_path: Path;
   functions: { [key: string]: Function };
-  children: { [key: string]:FunctionFolder};
+  children: { [key: string]: FunctionFolder };
 
   constructor(parent: DatapackNamespace | FunctionFolder, path: Path) {
     this.parent = parent
@@ -59,7 +140,7 @@ export class FunctionFolder {
 
   function(name: string, embeddable?: boolean) {
     name = `${name}.mcfunction`
-    if (this.functions[name]) {      
+    if (this.functions[name]) {
       return this.functions[name]
     }
     const f = new Function(this.func_path.child(name), embeddable)
@@ -67,14 +148,14 @@ export class FunctionFolder {
     this.functions[name] = f
     return f
   }
-  
+
   export() {
     Object.values(this.children).forEach(child => child.export())
     Object.values(this.functions).forEach(child => child.export())
   }
-  
+
   child(name: string) {
-    if (this.children[name]) {      
+    if (this.children[name]) {
       return this.children[name]
     }
     const c = new FunctionFolder(this, this.func_path.child(name))

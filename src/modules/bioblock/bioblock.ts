@@ -4,14 +4,14 @@ import { BBmodel, BBmodel_animation, BBmodel_animator, BBmodel_effect_animator, 
 import { JavaItemOverride, JavaModel } from "../model/types/java_model";
 import { base64mimeToBlob } from "../util/base64blob";
 import { Counter } from "../util/counter";
-import { Datapack, Function, FunctionFolder, mcPath } from "../util/datapack";
+import { Datapack, Function, FunctionFolder, mcPath, Tag } from "../util/datapack";
 import { Path } from "../util/folder";
 import { float_round } from "../util/number";
 import { constructMatrix, deconstructMatrix, getRotation, getTranspose, invertZ, matrix, matrix_mul, relativeOrigin, UNIT_MATRIX, vec3, vec3_add } from "../util/vector";
 import { combine_elements } from "./bbelem_to_java";
 import { sound_json } from "../model/types/resourcepack";
 import { bbmodel_json } from "../model/types/bbmodel_json";
-import { ENTITY_SELECTOR, ENTITY_TYPES, NAMESPACE, SCORE_FRAME, SCORE_ID, SCORE_ID_GLOBAL, SCORE_NEXT, SOUND_FILE, TAG_ACTIVE, TAG_ALL, TAG_ENTITY, TAG_ENTITYHITBOX, TAG_ENTITYPART, TAG_GC, TAG_HITBOX, TAG_SLEEP, TAG_TEMP } from './consts';
+import { ENTITY_SELECTOR, ENTITY_TYPES, NAMESPACE, SCOREHOLDER_x, SCOREHOLDER_y, SCORE_FRAME, SCORE_ID, SCORE_ID_GLOBAL, SCORE_NEXT, SCORE_TEMP, SOUND_FILE, STORAGE_CORE, TAG_ACTIVE, TAG_ALL, TAG_ENTITY, TAG_ENTITYHITBOX, TAG_ENTITYPART, TAG_GC, TAG_HITBOX, TAG_SLEEP, TAG_TEMP } from './consts';
 
 const extractFileName = (path: string): string => {
   const file = path.split(/[\/\\]/)
@@ -75,11 +75,12 @@ export class BioBlock {
   resourcepack: Path
   item: modelItem;
   tick_function: Function;
-  tick_tag: Path;
   api_folder: FunctionFolder;
   core_folder: FunctionFolder;
   sounds_json: Path;
   function_folder: FunctionFolder;
+  tick_tag: Tag;
+  entity_tag: Tag;
   constructor(models: BBmodel[], modelItem: modelItem, sounds: { [key: string]: File }) {
     this.item = modelItem
     this.datapack = new Datapack()
@@ -106,8 +107,8 @@ export class BioBlock {
     const customModelData = new Counter(modelItem.start)
     this.models = models.map(model => new BioBlockModel(this, model, this.api_folder, this.core_folder, this.models_folder, this.textures_folder, customModelData))
     this.tick_function = this.core_folder.function('tick')
-    // TODO: datapack tag の定義
-    this.tick_tag = this.datapack.path.child('data', 'minecraft', 'tags', 'functions', 'tick.json')
+    this.tick_tag = this.datapack.namespace('minecraft').tagsFolder.functions.tag('tick')
+    this.entity_tag = datapackNamespace.tagsFolder.entity_types.child('core').tag('main')
   }
 
   get needSoundFiles(): boolean {
@@ -122,13 +123,13 @@ export class BioBlock {
     return this.resourcepack.child('assets', NAMESPACE, 'textures')
   }
 
-
   export(): [Datapack, Path] {
     const model_overrides = this.models.flatMap(model => model.export())
 
     this.write_init_function()
     this.wirte_tick_function()
     this.wirte_tick_tag()
+    this.wirte_entity_tag()
 
     this.write_itemmodel(model_overrides)
 
@@ -168,26 +169,28 @@ export class BioBlock {
       `scoreboard objectives add ${SCORE_ID} dummy`,
       `scoreboard objectives add ${SCORE_NEXT} dummy`,
       `scoreboard objectives add ${SCORE_ID} dummy`,
+      `scoreboard objectives add ${SCORE_TEMP} dummy`,
       `scoreboard players set ${SCORE_ID_GLOBAL} ${SCORE_ID} 0`,
+      `data modify storage ${STORAGE_CORE} ids set value [I;]`,
     ]
     this.function_folder.function('init').addCommands(initfunc)
   }
 
   wirte_tick_function() {
     const tickfunc = [
+      `execute if entity ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_GC]: true } })} run tp ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_GC]: true } })} ~ ~-1000 ~`,
       `execute if entity ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_GC]: true } })} run kill ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_GC]: true } })}`,
       `tag ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true, [TAG_SLEEP]: false } })} add ${TAG_GC}`
     ]
     this.tick_function.addCommands(tickfunc)
   }
 
+  wirte_entity_tag() {
+    this.entity_tag.addValue('armor_stand', 'slime')
+  }
+
   wirte_tick_tag() {
-    const ticktag = {
-      values: [
-        this.tick_function.mcPath
-      ]
-    }
-    this.tick_tag.write_json(ticktag, true)
+    this.tick_tag.addValue(this.tick_function.mcPath)
   }
 
   write_itemmodel(model_overrides: JavaItemOverride[]) {
@@ -255,6 +258,9 @@ export class BioBlockModel {
   kill_function: Function;
   kill_api_function: Function;
   snooze_api_function: Function;
+  hitbox_folder: FunctionFolder;
+  die_function: Function;
+  die_api_function: Function;
 
   constructor(bioblock: BioBlock, model: BBmodel, api: FunctionFolder, core: FunctionFolder, models: Path, textures: Path, customModelDataCounter: Counter) {
     this.bioblock = bioblock
@@ -262,6 +268,8 @@ export class BioBlockModel {
 
     this.api_folder = api.child(this.model.name)
     this.core_folder = core.child(this.model.name)
+
+    this.hitbox_folder = this.core_folder.child('hitboxes')
 
     this.models_folder = models.child(this.model.name)
     this.textures_folder = textures.child(this.model.name)
@@ -281,6 +289,9 @@ export class BioBlockModel {
 
     this.kill_function = this.core_folder.function('__kill__')
     this.kill_api_function = this.api_folder.function('kill')
+
+    this.die_function = this.core_folder.function('__die__')
+    this.die_api_function = this.api_folder.function('die')
 
     this.snooze_api_function = this.api_folder.function('snooze')
 
@@ -312,10 +323,13 @@ export class BioBlockModel {
 
   export(): JavaItemOverride[] {
     //// Datapack
+    this.outliner.forEach(outline => outline.exportHitboxFunction(this.hitbox_folder))
     // summon
     this.writeSummonCommands()
     // kill
     this.writeKillCommands()
+    // die
+    this.writeDieCommands()
     // awake
     this.writeAwakeCommands()
     // sleep
@@ -377,6 +391,8 @@ export class BioBlockModel {
       `tag @s remove ${TAG_ALL}`,
       `tag @s remove ${this.tag}`,
       `scoreboard players operation _ ${SCORE_ID} = @s ${SCORE_ID}`,
+      `scoreboard players operation ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true } })} ${SCORE_ID} -= _ ${SCORE_ID}`,
+      `tp ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} ~ -1000 ~`,
       `kill ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })}`,
       `scoreboard players operation ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
       `scoreboard players reset @s ${SCORE_ID}`
@@ -387,6 +403,27 @@ export class BioBlockModel {
       `execute if entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true }, as_executer: true })} run function ${this.kill_function.mcPath}`
     ]
     this.kill_api_function.addCommands(api_commands)
+  }
+
+  writeDieCommands(): void {
+    const commands = [
+      `tag @s remove ${TAG_SLEEP}`,
+      `tag @s remove ${TAG_ALL}`,
+      `tag @s remove ${this.tag}`,
+      `scoreboard players operation _ ${SCORE_ID} = @s ${SCORE_ID}`,
+      `scoreboard players operation ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true } })} ${SCORE_ID} -= _ ${SCORE_ID}`,
+      `execute at ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} run particle minecraft:cloud ~-0.3 ~-0.3 ~-0.3 0.6 0.6 0.6 0.01 10`,
+      `tp ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} ~ -1000 ~`,
+      `kill ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })}`,
+      `scoreboard players operation ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
+      `scoreboard players reset @s ${SCORE_ID}`
+    ]
+    this.die_function.addCommands(commands)
+    const api_commands = [
+      `execute unless entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true }, as_executer: true })} run tellraw @a {"color":"red","text":"Error from CommandEntity\\nfunction ${this.sleep_api_function.mcPath} must be called as ${ENTITY_SELECTOR({ tags: { [this.tag]: true }, as_executer: true })}"}`,
+      `execute if entity ${ENTITY_SELECTOR({ tags: { [this.tag]: true }, as_executer: true })} run function ${this.die_function.mcPath}`
+    ]
+    this.die_api_function.addCommands(api_commands)
   }
 
   writeSnoozeCommands(): void {
@@ -456,6 +493,8 @@ export class BioBlock_outliner {
   hitbox_size: number | undefined = undefined;
   tag: string;
   name: string;
+  hitbox_function: Function | undefined = undefined;
+  hitbox_pre_function: Function | undefined = undefined;
 
   constructor(bioblockmodel: BioBlockModel, outliner: BBmodel_outliner, part_id: Counter, custom_model_data: Counter, texture_path: Path) {
     this.bioblockmodel = bioblockmodel
@@ -471,7 +510,7 @@ export class BioBlock_outliner {
     }
     console.log(outliner.name);
     console.log(this.hitbox_size);
-    
+
 
     this.tag = TAG_ENTITYHITBOX(bioblockmodel.model.name, this.name)
 
@@ -510,8 +549,9 @@ export class BioBlock_outliner {
   exportSummons(func: Function): void {
     if (this.hitbox_size !== undefined) {
       func.addCommand(
-        `summon minecraft:slime ~ ~ ~ { Size: ${this.hitbox_size},Tags:[${TAG_TEMP},${TAG_HITBOX},${this.tag},${TAG_ALL}] , Attributes: [{Base: 1024.0d, Name: "minecraft:generic.max_health"}], Invulnerable: 0b, PersistenceRequired: 1b, Health: 1024.0f, Silent: 1b,OnGround: 0b, NoAI: 1b}`
+        `summon minecraft:slime ~ ~ ~ { Size: ${this.hitbox_size},Tags:[${TAG_TEMP},${TAG_HITBOX},${this.tag},${TAG_ALL}] , Attributes: [{Base: 1024.0d, Name: "minecraft:generic.max_health"}], Invulnerable: 0b, PersistenceRequired: 1b, Health: 1024.0f, Silent: 1b,OnGround: 0b, NoAI: 1b,ActiveEffects: [{Ambient: 0b, ShowIcon: 0b, ShowParticles: 0b, Duration: 2147483647, Id: 14b, Amplifier: 1b}]}`
       )
+      
     }
     this.elements?.forEach(element => element.exportSummon(func))
     this.sub_outliner.forEach(outliner => outliner.exportSummons(func))
@@ -534,15 +574,58 @@ export class BioBlock_outliner {
     return relativeOrigin(invertZ(origin), this.keyframes.rotation.eval(tick / 20), invertZ(this.outliner.origin))
   }
 
+  exportHitboxFunction(folder: FunctionFolder) {
+    this.sub_outliner.forEach(outliner => outliner.exportHitboxFunction(folder))
+
+    if (this.hitbox_size === undefined) return
+
+    const func = folder.function(this.name)
+    const multiply = 1024
+    const maxhealth = 1024
+    func.addCommands(
+      [
+        `# ヒットボックスがダメージを受けた状態で呼ばれる`,
+        `# 減少後のHealthの値 (もとは1024f)`,
+        `# storage ${STORAGE_CORE} Health ::float`,
+        `# 実行者はヒットボックスではなくapi/summonの実行者`,
+        `# デフォルトでは実行者のHealthを同量減らす`,
+
+        `execute store result score ${SCOREHOLDER_x} ${SCORE_TEMP} run data get storage ${STORAGE_CORE} Health ${multiply}`,
+        `execute store result score ${SCOREHOLDER_y} ${SCORE_TEMP} run data get entity @s Health ${multiply}`,
+        `scoreboard players operation ${SCOREHOLDER_x} ${SCORE_TEMP} += ${SCOREHOLDER_y} ${SCORE_TEMP}`,
+        `scoreboard players remove ${SCOREHOLDER_x} ${SCORE_TEMP} ${maxhealth * multiply}`,
+        `execute if score ${SCOREHOLDER_x} ${SCORE_TEMP} matches ..0 run function ${this.bioblockmodel.die_function.mcPath}`,
+        `execute store result entity @s Health float ${1 / multiply} run scoreboard players get ${SCOREHOLDER_x} ${SCORE_TEMP}`
+      ]
+    )
+    const pre_func = folder.function(this.name + '_')
+    console.log(func.mcPath);
+
+    pre_func.addCommands([
+      `# 編集禁止`,
+      `tp @s ~ ~ ~`,
+      `data modify storage ${STORAGE_CORE} Health set from entity @s Health`,
+      `execute unless data storage ${STORAGE_CORE} {Health:1024f} run data modify entity @s Health set value 1024f`,
+    ])
+
+    this.hitbox_pre_function = pre_func
+    this.hitbox_function = func
+  }
+
   exportTpCommands(tick: number, matrix: matrix, include_tp: boolean, func: Function): void {
     this.matrix = matrix_mul(matrix, this.getMatrix(tick))
     const origin_matrix = matrix_mul(matrix, this.getRalativeOrigin(tick))
     let result: string[] = []
 
-    if ( include_tp && this.hitbox_size !== undefined) {
+    if (include_tp && this.hitbox_size !== undefined) {
       const [x, y, z] = getTranspose(this.matrix)
       func.addCommand(
-        `tp ${ENTITY_SELECTOR({ distance: '..32', type: 'slime', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} ~${float_round(x / 16, 5)} ~${float_round(y / 16, 5) - (this.hitbox_size + 1) * 0.25 } ~${-float_round(z / 16, 5)}`
+        `execute as ${ENTITY_SELECTOR({ distance: '..32', type: 'slime', tags: { [TAG_ACTIVE]: true, [this.tag]: true }, single: true })} ` +
+        `positioned ^${float_round(x / 16, 5)} ^${float_round(y / 16, 5) - (this.hitbox_size + 1) * 0.25} ^${-float_round(z / 16, 5)} ` +
+        `run function ${this.hitbox_pre_function?.mcPath}`
+      )
+      func.addCommand(
+        `execute unless data storage ${STORAGE_CORE} {Health:1024f} run function ${this.hitbox_function?.mcPath}`
       )
     }
 
@@ -734,18 +817,25 @@ class BioBlock_animation {
 
     func.addCommands([
       `scoreboard players operation _ ${SCORE_ID} = @s ${SCORE_ID}`,
+      
+      `data modify storage ${STORAGE_CORE} ids append value 0`,
+      `execute store result storage ${STORAGE_CORE} ids[-1] int 1 run scoreboard players get @s ${SCORE_ID}`,
+
       `scoreboard players operation ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true } })} ${SCORE_ID} -= _ ${SCORE_ID}`,
+      `scoreboard players set @s ${SCORE_ID} 0`,
       `tag ${ENTITY_SELECTOR({ distance: '..32', type: ENTITY_TYPES, tags: { [TAG_ALL]: true }, scores: { [SCORE_ID]: '0' } })} add ${TAG_ACTIVE}`,
       `tag ${ENTITY_SELECTOR({ distance: '..32', type: ENTITY_TYPES, tags: { [TAG_ACTIVE]: true } })} remove ${TAG_GC}`,
     ])
-
+    
     this.bioblockmodel.outliner.forEach(outliner => outliner.exportTpCommands(tick, UNIT_MATRIX, export_tp, func))
-
+    
     func.addCommands([
       // TODO: effectAnimatorのoutline組み込み
       ...this.effect_animator.exportCommands(tick),
       '',
       `tag ${ENTITY_SELECTOR({ distance: '..32', type: ENTITY_TYPES, tags: { [TAG_ACTIVE]: true } })} remove ${TAG_ACTIVE}`,
+      `execute store result score _ ${SCORE_ID} run data get storage ${STORAGE_CORE} ids[-1]`,
+      `data remove storage ${STORAGE_CORE} ids[-1]`,
       `scoreboard players operation ${ENTITY_SELECTOR({ type: ENTITY_TYPES, tags: { [TAG_ALL]: true } })} ${SCORE_ID} += _ ${SCORE_ID}`,
       `scoreboard players operation @s ${SCORE_ID} = _ ${SCORE_ID}`
     ])

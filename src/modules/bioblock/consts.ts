@@ -2,6 +2,10 @@ export const SCORE_ID_GLOBAL = '$GLOBAL'
 export const SCORE_ID    = 'BioBlock_Id'
 export const SCORE_FRAME = 'BioBlock_Frame'
 export const SCORE_NEXT  = 'BioBlock_Next'
+export const SCORE_TEMP  = 'BioBlock_temp'
+
+export const SCOREHOLDER_x  = 'x'
+export const SCOREHOLDER_y  = 'y'
 
 export const TAG_ALL      = 'BioBlock'
 export const TAG_TEMP     = 'BioBlock_'
@@ -13,6 +17,8 @@ export const TAG_HITBOX   = 'BioBlock_HITBOX'
 export const NAMESPACE    = 'bioblock'
 
 export const ENTITY_TYPES = '#bioblock:core/main'
+
+export const STORAGE_CORE = 'bioblock:core'
 
 export const TAG_ENTITY   = (entityname:string) => `BioBlock-${entityname}`
 export const TAG_ENTITYPART = (entityname:string,partid:string) => `BioBlock-${entityname}-${partid}`

@@ -123,8 +123,10 @@ export class BBmodel_animation {
     this.name = json.name
     this.loop = json.loop
     this.length = json.length
-    this.animators = Object.keys(json.animators).filter( uuid => uuid !== 'effects' ).map(uuid => new BBmodel_animator(json.animators[uuid] as bbmodel_animator_json, outliners.reduce((obj: BBmodel_outliner | undefined, outliner) => (obj ?? outliner.find(o => o.uuid === uuid)), undefined) ?? throwBBmodelError(uuid)))
-    this.effect_animator = new BBmodel_effect_animator(json.animators['effects'] as bbmodel_effect_animator_json | undefined ?? { name: "Effects", keyframes: [] })
+    this.animators = json.animators
+      ? Object.keys(json.animators).filter( uuid => uuid !== 'effects' ).map(uuid => new BBmodel_animator(json.animators[uuid] as bbmodel_animator_json, outliners.reduce((obj: BBmodel_outliner | undefined, outliner) => (obj ?? outliner.find(o => o.uuid === uuid)), undefined) ?? throwBBmodelError(uuid)))
+      : []
+    this.effect_animator = new BBmodel_effect_animator(json.animators?.['effects'] as bbmodel_effect_animator_json | undefined ?? { name: "Effects", keyframes: [] })
   }
 }
 

@@ -22,8 +22,7 @@ export const extractSoundFileNames = (models: bbmodel_json[]): Set<string> => {
   const files: Set<string> = new Set<string>()
   models.forEach(model => {
     model.animations.forEach(anim => {
-      if (anim.animators.effects) {
-
+      if (anim.animators && anim.animators.effects) {
         anim.animators.effects.keyframes.forEach(keyframe => {
           if (keyframe.channel === "sound") {
             files.add(extractFileName(keyframe.data_points[0].file))
@@ -543,7 +542,7 @@ export class BioBlock_outliner {
   setAnimation(animation: BBmodel_animation) {
     this.sub_outliner.map(outliner => outliner.setAnimation(animation))
     const keyframes = (animation.animators.find(animator => animator.outliner.uuid === this.outliner.uuid) ?? new BBmodel_animator({ name: '_', keyframes: [] }, this.outliner)).keyframes
-    this.keyframes = new BioBlock_keyframes(keyframes, this.outliner.origin, this.outliner.rotation)
+    this.keyframes = new BioBlock_keyframes(keyframes, this.outliner.origin, [-this.outliner.rotation[0], -this.outliner.rotation[1],this.outliner.rotation[2]])
   }
 
   exportSummons(func: Function): void {

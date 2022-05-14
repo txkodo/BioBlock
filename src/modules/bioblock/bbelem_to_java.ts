@@ -201,9 +201,9 @@ const optimizeJavaModel = (javaModel: JavaModel): [JavaModel, vec3] => {
     updateBbox(element.to)
   })
 
-  const maxsize = Math.max(...bbox.map(([s, e]) => e - s))
+  const maxsize = Math.max(...bbox.map(([s, e]) => Math.abs(e - s)))
   const center = bbox.map(([s, e]) => (s + e) / 2) as vec3
-  const scale = 2 ** Math.max(Math.ceil(Math.log2(maxsize / 48)), 0)
+  const scale = maxsize > 48 ? maxsize / 48 : 1
 
   const copy: JavaModel = { ...javaModel }
 
